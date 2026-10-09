@@ -9,14 +9,7 @@ impl BitmapFont {
     pub const CHAR_HEIGHT: f32 = 8.0;
 
     /// Renders a single ASCII character onto the pixmap at (x, y) with a given scale and color.
-    pub fn draw_char(
-        pixmap: &mut Pixmap,
-        x: f32,
-        y: f32,
-        c: char,
-        color: Color,
-        scale: f32,
-    ) {
+    pub fn draw_char(pixmap: &mut Pixmap, x: f32, y: f32, c: char, color: Color, scale: f32) {
         let glyph = get_glyph(c);
         let mut paint = Paint::default();
         paint.set_color(color);
@@ -35,14 +28,7 @@ impl BitmapFont {
     }
 
     /// Renders a text string with kerning and newline handling.
-    pub fn draw_text(
-        pixmap: &mut Pixmap,
-        x: f32,
-        y: f32,
-        text: &str,
-        color: Color,
-        scale: f32,
-    ) {
+    pub fn draw_text(pixmap: &mut Pixmap, x: f32, y: f32, text: &str, color: Color, scale: f32) {
         let mut cursor_x = x;
         let mut cursor_y = y;
         let char_step_x = (Self::CHAR_WIDTH + 1.0) * scale;

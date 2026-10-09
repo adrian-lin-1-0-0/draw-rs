@@ -1,18 +1,21 @@
 use super::{PlatformError, WindowPlatformController};
-use objc2::rc::Retained;
 use objc2::MainThreadMarker;
+use objc2::rc::Retained;
 use objc2_app_kit::{
-    NSApplication, NSColor, NSStatusWindowLevel, NSView, NSWindow, NSWindowCollectionBehavior,
+    NSApplication, NSColor, NSEvent, NSStatusWindowLevel, NSView, NSWindow,
+    NSWindowCollectionBehavior,
 };
 use objc2_core_foundation::{CFData, CFRetained};
 use objc2_core_graphics::{
-    CGBitmapInfo, CGColorRenderingIntent, CGColorSpace, CGDataProvider, CGImage,
-    CGImageAlphaInfo, CGImageByteOrderInfo,
+    CGBitmapInfo, CGColorRenderingIntent, CGColorSpace, CGDataProvider, CGImage, CGImageAlphaInfo,
+    CGImageByteOrderInfo,
 };
 use objc2_quartz_core::CATransaction;
 use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 use tiny_skia::Pixmap;
 use winit::window::Window;
+
+use crate::models::point::Point2D;
 
 /// Implementation of window platform controller for macOS using modern `objc2` and `objc2-app-kit`.
 ///
@@ -128,7 +131,9 @@ impl WindowPlatformController for MacosPlatformController {
     fn present_pixmap(&self, window: &Window, pixmap: &Pixmap) -> Result<(), PlatformError> {
         self.with_ns_view(window, |view| {
             let Some(layer) = view.layer() else {
-                return Err(PlatformError::AppKitError("NSView has no CALayer".to_string()));
+                return Err(PlatformError::AppKitError(
+                    "NSView has no CALayer".to_string(),
+                ));
             };
 
             let width = pixmap.width() as usize;
@@ -136,19 +141,20 @@ impl WindowPlatformController for MacosPlatformController {
             let data = pixmap.data();
 
             // Wrap pixel buffer safely into CFData
-            let cf_data = unsafe {
-                CFData::new(None, data.as_ptr(), data.len() as isize)
-            }.ok_or_else(|| PlatformError::AppKitError("Failed to allocate CFData".to_string()))?;
+            let cf_data = unsafe { CFData::new(None, data.as_ptr(), data.len() as isize) }
+                .ok_or_else(|| {
+                    PlatformError::AppKitError("Failed to allocate CFData".to_string())
+                })?;
 
-            let provider = CGDataProvider::with_cf_data(Some(&cf_data))
-                .ok_or_else(|| PlatformError::AppKitError("Failed to create CGDataProvider".to_string()))?;
+            let provider = CGDataProvider::with_cf_data(Some(&cf_data)).ok_or_else(|| {
+                PlatformError::AppKitError("Failed to create CGDataProvider".to_string())
+            })?;
 
             // CRITICAL: PremultipliedLast ensures standard premultiplied RGBA with true alpha blending!
             // Unlike softbuffer which hardcodes NoneSkipFirst (forcing opaque black background),
             // this enables genuine native alpha transparency composited by Quartz.
             let bitmap_info = CGBitmapInfo(
-                CGImageAlphaInfo::PremultipliedLast.0
-                    | CGImageByteOrderInfo::OrderDefault.0,
+                CGImageAlphaInfo::PremultipliedLast.0 | CGImageByteOrderInfo::OrderDefault.0,
             );
 
             let cg_image = unsafe {
@@ -165,7 +171,8 @@ impl WindowPlatformController for MacosPlatformController {
                     false,
                     CGColorRenderingIntent::RenderingIntentDefault,
                 )
-            }.ok_or_else(|| PlatformError::AppKitError("Failed to create CGImage".to_string()))?;
+            }
+            .ok_or_else(|| PlatformError::AppKitError("Failed to create CGImage".to_string()))?;
 
             // Set contents onto CALayer inside a transaction with disabled animations for 60fps responsiveness
             unsafe {
@@ -177,5 +184,14 @@ impl WindowPlatformController for MacosPlatformController {
 
             Ok(())
         })
+    }
+
+    fn get_global_cursor_pos(&self, window: &Window) -> Option<Point2D> {
+        let loc = NSEvent::mouseLocation();
+        let scale = window.scale_factor();
+        let size = window.inner_size();
+        let x_phys = (loc.x * scale) as f32;
+        let y_phys = (size.height as f64 - loc.y * scale) as f32;
+        Some(Point2D::new(x_phys, y_phys))
     }
 }

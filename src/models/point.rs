@@ -43,6 +43,19 @@ impl Point2D {
     pub fn midpoint(&self, other: &Self) -> Self {
         self.lerp(other, 0.5)
     }
+
+    /// Calculate the minimum distance from `self` to the line segment between `a` and `b`.
+    pub fn distance_to_segment(&self, a: &Self, b: &Self) -> f32 {
+        let ab = *b - *a;
+        let ap = *self - *a;
+        let len_sq = ab.x * ab.x + ab.y * ab.y;
+        if len_sq == 0.0 {
+            return self.distance(a);
+        }
+        let t = ((ap.x * ab.x + ap.y * ab.y) / len_sq).clamp(0.0, 1.0);
+        let projection = Self::new(a.x + t * ab.x, a.y + t * ab.y);
+        self.distance(&projection)
+    }
 }
 
 impl Add for Point2D {

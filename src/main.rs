@@ -3,8 +3,8 @@ use draw_rs::{
     platform::MacosPlatformController,
 };
 use global_hotkey::{
-    hotkey::{Code, HotKey},
     GlobalHotKeyEvent, GlobalHotKeyManager, HotKeyState,
+    hotkey::{Code, HotKey},
 };
 use winit::event_loop::{ControlFlow, EventLoop};
 
@@ -14,11 +14,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("============================================================");
     println!("Hotkeys & Controls:");
     println!("  [F1]        : Toggle Draw Mode <-> Click-Through Mode (Global)");
-    println!("  [F2]        : Cycle Tool (Pen -> Circle -> Arrow)");
+    println!("  [F2]        : Cycle Tool (Pen -> Circle -> Arrow -> Eraser)");
+    println!("  [E]         : Switch directly to Eraser (橡皮擦)");
+    println!("  [P]         : Switch directly to Pen (手繪筆)");
     println!("  [1 - 5]     : Switch Colors (Cyan, Emerald, Coral, Amber, Violet)");
-    println!("  [Z]         : Undo last shape");
+    println!("  [Z]         : Undo last action (Draw, Erase, Clear)");
     println!("  [C]         : Clear all doodles");
     println!("  [Esc]       : Exit application");
+    println!("  [Drag HUD]  : Click & Drag HUD card anytime (even in pass-through!)");
     println!("------------------------------------------------------------");
     println!("macOS Transparency & Permissions Note:");
     println!("  • Window background is 100% natively transparent via Quartz Compositor.");

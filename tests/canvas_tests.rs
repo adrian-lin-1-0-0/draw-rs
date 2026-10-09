@@ -1,6 +1,6 @@
 use draw_rs::{
-    app::state::{AppMode, DrawingTool, PaletteColor},
     ArrowShape, BitmapFont, CanvasController, CircleShape, Drawable, Point2D, StrokeShape,
+    app::state::{AppMode, DrawingTool, PaletteColor},
 };
 use tiny_skia::{Color, Pixmap};
 
@@ -13,6 +13,22 @@ fn test_point2d_geometry() {
     assert_eq!(p1.midpoint(&p2), Point2D::new(1.5, 2.0));
     assert_eq!(p1 + p2, Point2D::new(3.0, 4.0));
     assert_eq!(p2 - p1, Point2D::new(3.0, 4.0));
+
+    // Distance to segment test
+    let a = Point2D::new(0.0, 0.0);
+    let b = Point2D::new(10.0, 0.0);
+
+    // Perpendicular projection directly onto segment
+    let p_mid = Point2D::new(5.0, 3.0);
+    assert!((p_mid.distance_to_segment(&a, &b) - 3.0).abs() < 1e-4);
+
+    // Closest to end point 'a'
+    let p_before = Point2D::new(-4.0, 0.0);
+    assert!((p_before.distance_to_segment(&a, &b) - 4.0).abs() < 1e-4);
+
+    // Closest to end point 'b'
+    let p_after = Point2D::new(15.0, 0.0);
+    assert!((p_after.distance_to_segment(&a, &b) - 5.0).abs() < 1e-4);
 }
 
 #[test]
@@ -48,6 +64,88 @@ fn test_canvas_controller_history_and_undo() {
     canvas.clear();
     assert_eq!(canvas.shape_count(), 0);
     assert!(canvas.is_empty());
+}
+
+#[test]
+fn test_eraser_hit_testing() {
+    let stroke = StrokeShape::new(
+        vec![
+            Point2D::new(0.0, 0.0),
+            Point2D::new(100.0, 0.0),
+            Point2D::new(100.0, 100.0),
+        ],
+        Color::from_rgba8(255, 255, 255, 255),
+        4.0,
+    );
+
+    // Point near horizontal segment
+    assert!(stroke.intersects(Point2D::new(50.0, 5.0), 10.0));
+    // Point far away
+    assert!(!stroke.intersects(Point2D::new(50.0, 50.0), 10.0));
+
+    let circle = CircleShape::with_translucent_fill(
+        Point2D::new(200.0, 200.0),
+        30.0,
+        Color::from_rgba8(255, 255, 255, 255),
+        2.0,
+        0.2,
+    );
+
+    // Point inside circle
+    assert!(circle.intersects(Point2D::new(200.0, 200.0), 5.0));
+    // Point slightly outside circle border but within radius
+    assert!(circle.intersects(Point2D::new(235.0, 200.0), 10.0));
+    // Point completely outside
+    assert!(!circle.intersects(Point2D::new(300.0, 300.0), 10.0));
+
+    let arrow = ArrowShape::new(
+        Point2D::new(0.0, 0.0),
+        Point2D::new(50.0, 0.0),
+        Color::from_rgba8(255, 255, 255, 255),
+        3.0,
+    );
+
+    // Point near arrow shaft
+    assert!(arrow.intersects(Point2D::new(25.0, 2.0), 5.0));
+    // Point near arrow tip
+    assert!(arrow.intersects(Point2D::new(48.0, 1.0), 5.0));
+    // Point far away
+    assert!(!arrow.intersects(Point2D::new(25.0, 50.0), 5.0));
+}
+
+#[test]
+fn test_eraser_action_and_undo() {
+    let mut canvas = CanvasController::new();
+
+    let stroke1 = StrokeShape::new(
+        vec![Point2D::new(10.0, 10.0), Point2D::new(20.0, 20.0)],
+        Color::from_rgba8(255, 0, 0, 255),
+        2.0,
+    );
+    let stroke2 = StrokeShape::new(
+        vec![Point2D::new(100.0, 100.0), Point2D::new(200.0, 200.0)],
+        Color::from_rgba8(0, 255, 0, 255),
+        2.0,
+    );
+    canvas.push_shape(Box::new(stroke1));
+    canvas.push_shape(Box::new(stroke2));
+    assert_eq!(canvas.shape_count(), 2);
+
+    // Erase stroke1 at (15, 15)
+    let erased = canvas.erase_at(Point2D::new(15.0, 15.0), 10.0);
+    assert_eq!(erased.len(), 1);
+    assert_eq!(canvas.shape_count(), 1);
+
+    // Commit erase action to history
+    canvas.commit_erase(erased);
+
+    // Undo should restore stroke1 back into the canvas
+    assert!(canvas.undo());
+    assert_eq!(canvas.shape_count(), 2);
+
+    // Erase with nothing in range should be empty
+    let empty_erased = canvas.erase_at(Point2D::new(500.0, 500.0), 10.0);
+    assert!(empty_erased.is_empty());
 }
 
 #[test]
@@ -103,6 +201,8 @@ fn test_state_transitions() {
     assert_eq!(tool, DrawingTool::Circle);
     tool = tool.cycle();
     assert_eq!(tool, DrawingTool::Arrow);
+    tool = tool.cycle();
+    assert_eq!(tool, DrawingTool::Eraser);
     tool = tool.cycle();
     assert_eq!(tool, DrawingTool::Pen);
 }

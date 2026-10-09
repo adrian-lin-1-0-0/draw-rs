@@ -59,7 +59,10 @@ impl CanvasRenderer {
     #[allow(dead_code)]
     pub fn blit_to_buffer(&self, buffer: &mut [u32]) {
         let count = buffer.len().min(self.pixmap.pixels().len());
-        for (dst, src) in buffer[..count].iter_mut().zip(&self.pixmap.pixels()[..count]) {
+        for (dst, src) in buffer[..count]
+            .iter_mut()
+            .zip(&self.pixmap.pixels()[..count])
+        {
             let a = src.alpha() as u32;
             let r = src.red() as u32;
             let g = src.green() as u32;

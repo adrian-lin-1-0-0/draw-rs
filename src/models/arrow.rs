@@ -1,6 +1,8 @@
-use tiny_skia::{Color, FillRule, LineCap, LineJoin, Paint, PathBuilder, Pixmap, Stroke, Transform};
+use tiny_skia::{
+    Color, FillRule, LineCap, LineJoin, Paint, PathBuilder, Pixmap, Stroke, Transform,
+};
 
-use super::{point::Point2D, Drawable};
+use super::{Drawable, point::Point2D};
 
 /// A directional arrow, perfect for Two Pointers, Linked List `next` pointers,
 /// and Graph directed edges.
@@ -83,7 +85,26 @@ impl Drawable for ArrowShape {
         head_builder.close();
 
         if let Some(head_path) = head_builder.finish() {
-            pixmap.fill_path(&head_path, &paint, FillRule::Winding, Transform::identity(), None);
+            pixmap.fill_path(
+                &head_path,
+                &paint,
+                FillRule::Winding,
+                Transform::identity(),
+                None,
+            );
         }
+    }
+
+    fn intersects(&self, point: Point2D, radius: f32) -> bool {
+        let hit_radius = radius + (self.stroke_width * 0.5);
+        // 1. Check shaft line
+        if point.distance_to_segment(&self.start, &self.end) <= hit_radius {
+            return true;
+        }
+        // 2. Check near arrowhead
+        if point.distance(&self.end) <= radius + self.head_length {
+            return true;
+        }
+        false
     }
 }

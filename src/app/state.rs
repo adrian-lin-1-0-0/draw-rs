@@ -1,5 +1,5 @@
 use crate::models::{
-    arrow::ArrowShape, circle::CircleShape, point::Point2D, stroke::StrokeShape, Drawable,
+    Drawable, arrow::ArrowShape, circle::CircleShape, point::Point2D, stroke::StrokeShape,
 };
 use tiny_skia::Color;
 
@@ -27,15 +27,17 @@ pub enum DrawingTool {
     Pen,
     Circle,
     Arrow,
+    Eraser,
 }
 
 impl DrawingTool {
-    /// Cycle to the next tool in sequence (Pen -> Circle -> Arrow -> Pen).
+    /// Cycle to the next tool in sequence (Pen -> Circle -> Arrow -> Eraser -> Pen).
     pub fn cycle(&self) -> Self {
         match self {
             Self::Pen => Self::Circle,
             Self::Circle => Self::Arrow,
-            Self::Arrow => Self::Pen,
+            Self::Arrow => Self::Eraser,
+            Self::Eraser => Self::Pen,
         }
     }
 
@@ -44,6 +46,7 @@ impl DrawingTool {
             Self::Pen => "Pen",
             Self::Circle => "Circle (Node)",
             Self::Arrow => "Arrow (Pointer)",
+            Self::Eraser => "Eraser",
         }
     }
 }
@@ -61,10 +64,10 @@ pub enum PaletteColor {
 impl PaletteColor {
     pub fn to_color(self) -> Color {
         match self {
-            Self::Cyan => Color::from_rgba8(56, 189, 248, 255),    // #38BDF8
+            Self::Cyan => Color::from_rgba8(56, 189, 248, 255), // #38BDF8
             Self::Emerald => Color::from_rgba8(52, 211, 153, 255), // #34D399
-            Self::Coral => Color::from_rgba8(248, 113, 113, 255),  // #F87171
-            Self::Amber => Color::from_rgba8(251, 191, 36, 255),   // #FBBF24
+            Self::Coral => Color::from_rgba8(248, 113, 113, 255), // #F87171
+            Self::Amber => Color::from_rgba8(251, 191, 36, 255), // #FBBF24
             Self::Violet => Color::from_rgba8(192, 132, 252, 255), // #C084FC
         }
     }
@@ -80,24 +83,35 @@ impl PaletteColor {
     }
 }
 
-/// State of an active mouse dragging operation for live shape previewing.
-#[derive(Debug, Clone)]
+/// State of an active mouse dragging operation.
 pub enum DragState {
     Idle,
     DrawingStroke(Vec<Point2D>),
-    DrawingCircle { start: Point2D, current: Point2D },
-    DrawingArrow { start: Point2D, current: Point2D },
+    DrawingCircle {
+        start: Point2D,
+        current: Point2D,
+    },
+    DrawingArrow {
+        start: Point2D,
+        current: Point2D,
+    },
+    Erasing {
+        removed: Vec<(usize, Box<dyn Drawable>)>,
+    },
+    DraggingHud {
+        drag_offset: Point2D,
+    },
 }
 
 impl DragState {
-    /// Produces a live preview drawable object if currently in an active drag.
+    /// Produces a live preview drawable object if currently in an active drawing drag.
     pub fn to_preview_drawable(
         &self,
         color: PaletteColor,
         stroke_width: f32,
     ) -> Option<Box<dyn Drawable>> {
         match self {
-            Self::Idle => None,
+            Self::Idle | Self::Erasing { .. } | Self::DraggingHud { .. } => None,
             Self::DrawingStroke(points) => {
                 if points.is_empty() {
                     None

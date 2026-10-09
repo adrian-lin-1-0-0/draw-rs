@@ -1,6 +1,6 @@
 use tiny_skia::{Color, LineCap, LineJoin, Paint, PathBuilder, Pixmap, Stroke, Transform};
 
-use super::{point::Point2D, Drawable};
+use super::{Drawable, point::Point2D};
 
 /// A freehand pen stroke made of sampled 2D points.
 /// Implements quadratic Bézier curve smoothing for natural and responsive ink strokes.
@@ -45,7 +45,13 @@ impl Drawable for StrokeShape {
             let mut pb = PathBuilder::new();
             pb.push_circle(p.x, p.y, radius);
             if let Some(path) = pb.finish() {
-                pixmap.fill_path(&path, &paint, tiny_skia::FillRule::Winding, Transform::identity(), None);
+                pixmap.fill_path(
+                    &path,
+                    &paint,
+                    tiny_skia::FillRule::Winding,
+                    Transform::identity(),
+                    None,
+                );
             }
             return;
         }
@@ -71,5 +77,21 @@ impl Drawable for StrokeShape {
         if let Some(path) = pb.finish() {
             pixmap.stroke_path(&path, &paint, &stroke, Transform::identity(), None);
         }
+    }
+
+    fn intersects(&self, point: Point2D, radius: f32) -> bool {
+        let hit_radius = radius + (self.width * 0.5);
+        if self.points.is_empty() {
+            return false;
+        }
+        if self.points.len() == 1 {
+            return point.distance(&self.points[0]) <= hit_radius;
+        }
+        for i in 0..self.points.len() - 1 {
+            if point.distance_to_segment(&self.points[i], &self.points[i + 1]) <= hit_radius {
+                return true;
+            }
+        }
+        false
     }
 }

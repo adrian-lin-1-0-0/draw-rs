@@ -1,16 +1,18 @@
 pub mod state;
 
 use std::sync::Arc;
+use std::time::{Duration, Instant};
 
+use tiny_skia::{Color, Paint, PathBuilder, Stroke, Transform};
 use winit::application::ApplicationHandler;
 use winit::dpi::{PhysicalPosition, PhysicalSize};
 use winit::event::{ElementState, MouseButton, WindowEvent};
-use winit::event_loop::ActiveEventLoop;
+use winit::event_loop::{ActiveEventLoop, ControlFlow};
 use winit::keyboard::{KeyCode, PhysicalKey};
 use winit::window::{CursorIcon, Window, WindowId};
 
 use crate::controller::CanvasController;
-use crate::models::{point::Point2D, Drawable};
+use crate::models::{Drawable, point::Point2D};
 use crate::platform::WindowPlatformController;
 use crate::render::{CanvasRenderer, HudOverlay};
 use state::{AppMode, DragState, DrawingTool, PaletteColor};
@@ -36,9 +38,12 @@ pub struct DrawApp {
     tool: DrawingTool,
     color: PaletteColor,
     stroke_width: f32,
+    eraser_radius: f32,
     drag_state: DragState,
     cursor_pos: Point2D,
     scale_factor: f64,
+    hud_pos: Point2D,
+    is_click_through_active: bool,
 }
 
 impl DrawApp {
@@ -52,9 +57,12 @@ impl DrawApp {
             tool: DrawingTool::Pen,
             color: PaletteColor::Cyan,
             stroke_width: 3.5,
+            eraser_radius: 18.0,
             drag_state: DragState::Idle,
             cursor_pos: Point2D::ZERO,
             scale_factor: 1.0,
+            hud_pos: Point2D::new(24.0, 24.0),
+            is_click_through_active: false,
         }
     }
 
@@ -66,22 +74,40 @@ impl DrawApp {
             match self.mode {
                 AppMode::ClickThrough => {
                     self.drag_state = DragState::Idle;
-                    window.set_cursor(CursorIcon::Default);
-                    if let Err(err) = self.platform.set_click_through(window, true) {
-                        eprintln!("[draw-rs] Failed to set click-through mode: {err}");
+                    // Check if cursor happens to be on the HUD
+                    let is_over_hud = HudOverlay::contains_point(
+                        self.hud_pos,
+                        self.cursor_pos,
+                        self.scale_factor as f32,
+                    );
+                    if is_over_hud {
+                        let _ = self.platform.set_click_through(window, false);
+                        self.is_click_through_active = false;
+                        window.set_cursor(CursorIcon::Grab);
+                    } else {
+                        let _ = self.platform.set_click_through(window, true);
+                        self.is_click_through_active = true;
+                        window.set_cursor(CursorIcon::Default);
                     }
                 }
                 AppMode::Drawing => {
-                    if let Err(err) = self.platform.set_click_through(window, false) {
-                        eprintln!("[draw-rs] Failed to disable click-through mode: {err}");
-                    }
+                    let _ = self.platform.set_click_through(window, false);
+                    self.is_click_through_active = false;
                     if let Err(err) = self.platform.activate_window(window) {
                         eprintln!("[draw-rs] Failed to activate window: {err}");
                     }
-                    window.set_cursor(CursorIcon::Crosshair);
+                    window.set_cursor(self.default_cursor_for_tool());
                 }
             }
             window.request_redraw();
+        }
+    }
+
+    /// Selects appropriate default cursor icon for the active tool in drawing mode.
+    fn default_cursor_for_tool(&self) -> CursorIcon {
+        match self.tool {
+            DrawingTool::Pen | DrawingTool::Circle | DrawingTool::Arrow => CursorIcon::Crosshair,
+            DrawingTool::Eraser => CursorIcon::Default,
         }
     }
 
@@ -102,7 +128,41 @@ impl DrawApp {
 
         self.canvas.draw_all(renderer.pixmap_mut(), preview_ref);
 
-        // 3. Render Status HUD
+        // 3. If eraser tool is active in Drawing mode, draw interactive eraser radius ring
+        if self.mode == AppMode::Drawing && self.tool == DrawingTool::Eraser {
+            let radius = self.eraser_radius * (self.scale_factor as f32);
+            let mut pb = PathBuilder::new();
+            pb.push_circle(self.cursor_pos.x, self.cursor_pos.y, radius);
+            if let Some(path) = pb.finish() {
+                // Subtle glowing fill
+                let mut fill_paint = Paint::default();
+                fill_paint.set_color(Color::from_rgba8(244, 63, 94, 30));
+                renderer.pixmap_mut().fill_path(
+                    &path,
+                    &fill_paint,
+                    tiny_skia::FillRule::Winding,
+                    Transform::identity(),
+                    None,
+                );
+
+                // Crisp outline
+                let mut stroke_paint = Paint::default();
+                stroke_paint.set_color(Color::from_rgba8(244, 63, 94, 210));
+                let stroke = Stroke {
+                    width: 2.0 * (self.scale_factor as f32),
+                    ..Default::default()
+                };
+                renderer.pixmap_mut().stroke_path(
+                    &path,
+                    &stroke_paint,
+                    &stroke,
+                    Transform::identity(),
+                    None,
+                );
+            }
+        }
+
+        // 4. Render draggable Status HUD at dynamic position
         HudOverlay::render(
             renderer.pixmap_mut(),
             self.mode,
@@ -110,12 +170,22 @@ impl DrawApp {
             self.color,
             self.canvas.shape_count(),
             self.scale_factor as f32,
+            self.hud_pos,
         );
 
-        // 4. Present with native macOS Quartz Compositor alpha blending
+        // 5. Present with native macOS Quartz Compositor alpha blending
         if let Err(err) = self.platform.present_pixmap(window, renderer.pixmap_mut()) {
             eprintln!("[draw-rs] Failed to present frame buffer: {err}");
         }
+    }
+
+    /// Clamp HUD position to keep the card fully visible inside window bounds.
+    fn clamp_hud_position(&mut self, window_size: PhysicalSize<u32>) {
+        let (card_w, card_h) = HudOverlay::get_card_size(self.scale_factor as f32);
+        let max_x = (window_size.width as f32 - card_w - 8.0).max(8.0);
+        let max_y = (window_size.height as f32 - card_h - 8.0).max(8.0);
+        self.hud_pos.x = self.hud_pos.x.clamp(8.0, max_x);
+        self.hud_pos.y = self.hud_pos.y.clamp(8.0, max_y);
     }
 }
 
@@ -173,6 +243,7 @@ impl ApplicationHandler<AppEvent> for DrawApp {
         self.window = Some(window.clone());
         self.renderer = Some(renderer);
 
+        self.clamp_hud_position(size);
         window.request_redraw();
     }
 
@@ -192,6 +263,10 @@ impl ApplicationHandler<AppEvent> for DrawApp {
 
             WindowEvent::ScaleFactorChanged { scale_factor, .. } => {
                 self.scale_factor = scale_factor;
+                let win_size = self.window.as_ref().map(|w| w.inner_size());
+                if let Some(size) = win_size {
+                    self.clamp_hud_position(size);
+                }
                 if let Some(w) = &self.window {
                     w.request_redraw();
                 }
@@ -201,6 +276,7 @@ impl ApplicationHandler<AppEvent> for DrawApp {
                 if let Some(renderer) = &mut self.renderer {
                     renderer.resize(new_size.width, new_size.height);
                 }
+                self.clamp_hud_position(new_size);
                 if let Some(w) = &self.window {
                     w.request_redraw();
                 }
@@ -209,6 +285,20 @@ impl ApplicationHandler<AppEvent> for DrawApp {
             WindowEvent::CursorMoved { position, .. } => {
                 self.cursor_pos = Point2D::new(position.x as f32, position.y as f32);
 
+                // 1. If currently dragging HUD, update HUD position
+                if let DragState::DraggingHud { drag_offset } = self.drag_state {
+                    self.hud_pos = self.cursor_pos - drag_offset;
+                    let win_size = self.window.as_ref().map(|w| w.inner_size());
+                    if let Some(size) = win_size {
+                        self.clamp_hud_position(size);
+                    }
+                    if let Some(w) = &self.window {
+                        w.request_redraw();
+                    }
+                    return;
+                }
+
+                // 2. Handle active drawing / erasing
                 if self.mode == AppMode::Drawing {
                     match &mut self.drag_state {
                         DragState::DrawingStroke(points) => {
@@ -230,7 +320,35 @@ impl ApplicationHandler<AppEvent> for DrawApp {
                                 w.request_redraw();
                             }
                         }
-                        DragState::Idle => {}
+                        DragState::Erasing { removed } => {
+                            let radius = self.eraser_radius * (self.scale_factor as f32);
+                            let just_erased = self.canvas.erase_at(self.cursor_pos, radius);
+                            if !just_erased.is_empty() {
+                                removed.extend(just_erased);
+                                if let Some(w) = &self.window {
+                                    w.request_redraw();
+                                }
+                            }
+                        }
+                        DragState::Idle => {
+                            // Update cursor icon if hovering over HUD
+                            if let Some(w) = &self.window {
+                                if HudOverlay::contains_point(
+                                    self.hud_pos,
+                                    self.cursor_pos,
+                                    self.scale_factor as f32,
+                                ) {
+                                    w.set_cursor(CursorIcon::Grab);
+                                } else {
+                                    w.set_cursor(self.default_cursor_for_tool());
+                                }
+                                // Request redraw when eraser is active to update eraser ring
+                                if self.tool == DrawingTool::Eraser {
+                                    w.request_redraw();
+                                }
+                            }
+                        }
+                        DragState::DraggingHud { .. } => unreachable!(),
                     }
                 }
             }
@@ -240,38 +358,96 @@ impl ApplicationHandler<AppEvent> for DrawApp {
                 state,
                 ..
             } => {
-                if self.mode != AppMode::Drawing {
-                    return;
-                }
-
                 match state {
                     ElementState::Pressed => {
-                        self.drag_state = match self.tool {
-                            DrawingTool::Pen => DragState::DrawingStroke(vec![self.cursor_pos]),
-                            DrawingTool::Circle => DragState::DrawingCircle {
-                                start: self.cursor_pos,
-                                current: self.cursor_pos,
-                            },
-                            DrawingTool::Arrow => DragState::DrawingArrow {
-                                start: self.cursor_pos,
-                                current: self.cursor_pos,
-                            },
-                        };
+                        // Check if user clicked on the HUD to start dragging it
+                        if HudOverlay::contains_point(
+                            self.hud_pos,
+                            self.cursor_pos,
+                            self.scale_factor as f32,
+                        ) {
+                            self.drag_state = DragState::DraggingHud {
+                                drag_offset: self.cursor_pos - self.hud_pos,
+                            };
+                            if let Some(w) = &self.window {
+                                w.set_cursor(CursorIcon::Grabbing);
+                                w.request_redraw();
+                            }
+                            return;
+                        }
+
+                        // Drawing / Erasing operations only in Drawing mode
+                        if self.mode != AppMode::Drawing {
+                            return;
+                        }
+
+                        match self.tool {
+                            DrawingTool::Pen => {
+                                self.drag_state = DragState::DrawingStroke(vec![self.cursor_pos]);
+                            }
+                            DrawingTool::Circle => {
+                                self.drag_state = DragState::DrawingCircle {
+                                    start: self.cursor_pos,
+                                    current: self.cursor_pos,
+                                };
+                            }
+                            DrawingTool::Arrow => {
+                                self.drag_state = DragState::DrawingArrow {
+                                    start: self.cursor_pos,
+                                    current: self.cursor_pos,
+                                };
+                            }
+                            DrawingTool::Eraser => {
+                                let radius = self.eraser_radius * (self.scale_factor as f32);
+                                let removed = self.canvas.erase_at(self.cursor_pos, radius);
+                                self.drag_state = DragState::Erasing { removed };
+                            }
+                        }
                         if let Some(w) = &self.window {
                             w.request_redraw();
                         }
                     }
+
                     ElementState::Released => {
-                        // Commit active preview into canvas history
-                        if let Some(shape) = self
-                            .drag_state
-                            .to_preview_drawable(self.color, self.stroke_width)
-                        {
-                            self.canvas.push_shape(shape);
-                        }
-                        self.drag_state = DragState::Idle;
-                        if let Some(w) = &self.window {
-                            w.request_redraw();
+                        match std::mem::replace(&mut self.drag_state, DragState::Idle) {
+                            DragState::DraggingHud { .. } => {
+                                if let Some(w) = &self.window {
+                                    if self.mode == AppMode::ClickThrough {
+                                        // If still over HUD, remain Grab; otherwise re-enable pass-through
+                                        let is_over = HudOverlay::contains_point(
+                                            self.hud_pos,
+                                            self.cursor_pos,
+                                            self.scale_factor as f32,
+                                        );
+                                        if is_over {
+                                            w.set_cursor(CursorIcon::Grab);
+                                        } else {
+                                            let _ = self.platform.set_click_through(w, true);
+                                            self.is_click_through_active = true;
+                                            w.set_cursor(CursorIcon::Default);
+                                        }
+                                    } else {
+                                        w.set_cursor(self.default_cursor_for_tool());
+                                    }
+                                    w.request_redraw();
+                                }
+                            }
+                            DragState::Erasing { removed } => {
+                                self.canvas.commit_erase(removed);
+                                if let Some(w) = &self.window {
+                                    w.request_redraw();
+                                }
+                            }
+                            preview_drag => {
+                                if let Some(shape) =
+                                    preview_drag.to_preview_drawable(self.color, self.stroke_width)
+                                {
+                                    self.canvas.push_shape(shape);
+                                }
+                                if let Some(w) = &self.window {
+                                    w.request_redraw();
+                                }
+                            }
                         }
                     }
                 }
@@ -292,6 +468,21 @@ impl ApplicationHandler<AppEvent> for DrawApp {
                 KeyCode::F2 => {
                     self.tool = self.tool.cycle();
                     if let Some(w) = &self.window {
+                        w.set_cursor(self.default_cursor_for_tool());
+                        w.request_redraw();
+                    }
+                }
+                KeyCode::KeyE => {
+                    self.tool = DrawingTool::Eraser;
+                    if let Some(w) = &self.window {
+                        w.set_cursor(self.default_cursor_for_tool());
+                        w.request_redraw();
+                    }
+                }
+                KeyCode::KeyP => {
+                    self.tool = DrawingTool::Pen;
+                    if let Some(w) = &self.window {
+                        w.set_cursor(self.default_cursor_for_tool());
                         w.request_redraw();
                     }
                 }
@@ -348,6 +539,48 @@ impl ApplicationHandler<AppEvent> for DrawApp {
             }
 
             _ => {}
+        }
+    }
+
+    fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
+        if self.mode == AppMode::ClickThrough {
+            // Keep checking cursor position at 60 FPS while in Click-Through mode
+            event_loop.set_control_flow(ControlFlow::WaitUntil(
+                Instant::now() + Duration::from_millis(16),
+            ));
+
+            let Some(window) = &self.window else { return };
+
+            // Don't modify click-through state if user is actively dragging the HUD
+            if matches!(self.drag_state, DragState::DraggingHud { .. }) {
+                return;
+            }
+
+            if let Some(global_cursor) = self.platform.get_global_cursor_pos(window) {
+                self.cursor_pos = global_cursor;
+                let is_over_hud = HudOverlay::contains_point(
+                    self.hud_pos,
+                    global_cursor,
+                    self.scale_factor as f32,
+                );
+
+                if is_over_hud {
+                    if self.is_click_through_active {
+                        // Cursor hovered over HUD! Temporarily disable click-through
+                        // so user can immediately click, grab, and drag the HUD card
+                        let _ = self.platform.set_click_through(window, false);
+                        self.is_click_through_active = false;
+                        window.set_cursor(CursorIcon::Grab);
+                    }
+                } else if !self.is_click_through_active {
+                    // Cursor left HUD! Re-enable click-through so clicks pass to background apps
+                    let _ = self.platform.set_click_through(window, true);
+                    self.is_click_through_active = true;
+                    window.set_cursor(CursorIcon::Default);
+                }
+            }
+        } else {
+            event_loop.set_control_flow(ControlFlow::Wait);
         }
     }
 }

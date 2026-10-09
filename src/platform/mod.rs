@@ -41,5 +41,13 @@ pub trait WindowPlatformController: Send + Sync {
     fn activate_window(&self, window: &Window) -> Result<(), PlatformError>;
 
     /// Present a tiny-skia Pixmap with true native alpha transparency directly to the window layer.
-    fn present_pixmap(&self, window: &Window, pixmap: &tiny_skia::Pixmap) -> Result<(), PlatformError>;
+    fn present_pixmap(
+        &self,
+        window: &Window,
+        pixmap: &tiny_skia::Pixmap,
+    ) -> Result<(), PlatformError>;
+
+    /// Retrieve the current mouse cursor location in window physical pixel coordinates,
+    /// even if the window is currently unfocused or ignoring mouse events.
+    fn get_global_cursor_pos(&self, window: &Window) -> Option<crate::models::point::Point2D>;
 }

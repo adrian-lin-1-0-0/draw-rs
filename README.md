@@ -55,9 +55,10 @@ When solving algorithmic problems on LeetCode, Codeforces, or during technical w
 | :--- | :--- |
 | **Native Zero-Alpha Transparency** | Built on macOS `NSWindow` & `CALayer` composited via Quartz. Background has Alpha = 0 with zero black artifacts or stuttering. |
 | **Global Click-Through Toggle** | Powered by modern type-safe `objc2-app-kit` calling `setIgnoresMouseEvents:`. A background listener captures <kbd>F1</kbd> globally even when unfocused. |
-| **LeetCode Algorithm Tools** | Smooth Pen (<kbd>Pen</kbd>), Translucent Nodes (<kbd>Circle</kbd>), and Directional Pointers (<kbd>Arrow</kbd>) with real-time drag previews. |
+| **Draggable HUD in Click-Through Mode** | Real-time coordinate hit-testing dynamically re-enables dragging on the HUD card in click-through mode, so you can freely reposition the overlay without interrupting workflow. |
+| **Algorithm Tools & Smart Eraser** | Smooth Pen (<kbd>P</kbd>), Translucent Nodes (<kbd>Circle</kbd>), Directional Pointers (<kbd>Arrow</kbd>), and an interactive Vector Eraser (<kbd>E</kbd>) with full undo support. |
 | **Curated High-Contrast Palette** | High-visibility algorithm colors (Cyan, Emerald, Coral, Amber, Violet) engineered for both light and dark editor themes. |
-| **Glassmorphic Status HUD** | Sleek translucent top-left overlay powered by a built-in zero-dependency 8x8 ASCII raster font engine. |
+| **Glassmorphic Status HUD** | Sleek translucent top overlay powered by a built-in zero-dependency 8x8 ASCII raster font engine with drag-to-reposition support. |
 | **Ultra-Lightweight & Performant** | Pure-CPU 2D vector rasterization via `tiny-skia`. Minimal memory footprint with a standalone binary of only ~1.4 MB. |
 
 ---
@@ -65,19 +66,23 @@ When solving algorithmic problems on LeetCode, Codeforces, or during technical w
 ## ⌨️ Keyboard Shortcuts & Controls
 
 ```
-┌────────────────────────────────────────────────────────────────────────┐
-│ ● DRAWING  |  TOOL: Pen  |  SHAPES: 3                                   │
-│ [F1] Pass-thru  [F2] Tool  [1-5] Color: Cyan  [Z] Undo  [C] Clear       │
-└────────────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│ ● DRAWING  |  TOOL: Pen  |  SHAPES: 3                                           │
+│ [F1] Pass-thru  [F2] Tool  [E] Eraser  [1-5] Color: Cyan  [Z] Undo  [C] Clear   │
+│ Drag HUD to reposition                                                          │
+└─────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-| Key | Action | Description |
+| Key / Mouse | Action | Description |
 | :---: | :--- | :--- |
 | <kbd>F1</kbd> | **Toggle Mode (Global)** | Switch between **Drawing Mode** and **Click-Through Mode** (works globally even when unfocused) |
-| <kbd>F2</kbd> | **Cycle Tool** | Switch: `Pen (Ink)` ➔ `Circle (Tree/Graph Node)` ➔ `Arrow (Pointer/Edge)` |
+| <kbd>F2</kbd> | **Cycle Tool** | Cycle: `Pen` ➔ `Circle (Tree/Graph Node)` ➔ `Arrow (Pointer/Edge)` ➔ `Eraser` |
+| <kbd>E</kbd> | **Eraser Tool** | Switch directly to **Eraser** to erase strokes and shapes with an interactive circular cursor |
+| <kbd>P</kbd> | **Pen Tool** | Switch directly back to **Pen** |
 | <kbd>1</kbd> ~ <kbd>5</kbd> | **Switch Palette Color** | `1: Cyan`, `2: Emerald`, `3: Coral`, `4: Amber`, `5: Violet` |
-| <kbd>Z</kbd> | **Undo** | Remove the most recently drawn shape |
+| <kbd>Z</kbd> | **Undo** | Reversibly undo drawn shapes or restore erased strokes/shapes |
 | <kbd>C</kbd> | **Clear** | Clear all doodles and annotations on screen |
+| **Drag HUD** | **Reposition HUD Card** | Click and drag the HUD card to move it anywhere on screen (active in **both** Drawing and Click-Through modes!) |
 | <kbd>Esc</kbd> | **Exit** | Close and gracefully quit the application |
 
 ---

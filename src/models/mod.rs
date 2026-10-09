@@ -18,4 +18,7 @@ pub use stroke::StrokeShape;
 /// by implementing this trait, without modifying existing canvas or rendering code.
 pub trait Drawable: Send + Sync {
     fn draw(&self, pixmap: &mut tiny_skia::Pixmap);
+
+    /// Checks if this shape intersects with a circular eraser region centered at `point` with `radius`.
+    fn intersects(&self, point: Point2D, radius: f32) -> bool;
 }

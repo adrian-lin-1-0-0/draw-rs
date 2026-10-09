@@ -1,6 +1,6 @@
 use tiny_skia::{Color, FillRule, Paint, PathBuilder, Pixmap, Stroke, Transform};
 
-use super::{point::Point2D, Drawable};
+use super::{Drawable, point::Point2D};
 
 /// A circle node, perfectly tailored for Tree and Graph nodes in algorithm problems.
 #[derive(Debug, Clone)]
@@ -71,7 +71,13 @@ impl Drawable for CircleShape {
             let mut fill_paint = Paint::default();
             fill_paint.set_color(fill_color);
             fill_paint.anti_alias = true;
-            pixmap.fill_path(&path, &fill_paint, FillRule::Winding, Transform::identity(), None);
+            pixmap.fill_path(
+                &path,
+                &fill_paint,
+                FillRule::Winding,
+                Transform::identity(),
+                None,
+            );
         }
 
         // 2. Stroke outline
@@ -84,5 +90,10 @@ impl Drawable for CircleShape {
             ..Default::default()
         };
         pixmap.stroke_path(&path, &stroke_paint, &stroke, Transform::identity(), None);
+    }
+
+    fn intersects(&self, point: Point2D, radius: f32) -> bool {
+        let dist = point.distance(&self.center);
+        dist <= self.radius + radius
     }
 }
