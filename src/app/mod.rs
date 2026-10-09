@@ -14,7 +14,7 @@ use winit::window::{CursorIcon, Window, WindowId};
 use crate::controller::CanvasController;
 use crate::models::{Drawable, point::Point2D};
 use crate::platform::WindowPlatformController;
-use crate::render::{CanvasRenderer, HudOverlay};
+use crate::render::{CanvasRenderer, HudHitTarget, HudOverlay};
 use state::{AppMode, DragState, DrawingTool, PaletteColor};
 
 /// Custom application event triggered by global hotkeys or background threads.
@@ -331,20 +331,31 @@ impl ApplicationHandler<AppEvent> for DrawApp {
                             }
                         }
                         DragState::Idle => {
-                            // Update cursor icon if hovering over HUD
+                            // Update cursor icon if hovering over HUD buttons or drag area
                             if let Some(w) = &self.window {
-                                if HudOverlay::contains_point(
+                                let hit = HudOverlay::hit_test(
                                     self.hud_pos,
                                     self.cursor_pos,
                                     self.scale_factor as f32,
-                                ) {
-                                    w.set_cursor(CursorIcon::Grab);
-                                } else {
-                                    w.set_cursor(self.default_cursor_for_tool());
-                                }
-                                // Request redraw when eraser is active to update eraser ring
-                                if self.tool == DrawingTool::Eraser {
-                                    w.request_redraw();
+                                );
+                                match hit {
+                                    HudHitTarget::Tool(_)
+                                    | HudHitTarget::Color(_)
+                                    | HudHitTarget::ToggleMode
+                                    | HudHitTarget::Undo
+                                    | HudHitTarget::Clear => {
+                                        w.set_cursor(CursorIcon::Pointer);
+                                    }
+                                    HudHitTarget::DragHeader => {
+                                        w.set_cursor(CursorIcon::Grab);
+                                    }
+                                    HudHitTarget::None => {
+                                        w.set_cursor(self.default_cursor_for_tool());
+                                        // Request redraw when eraser is active to update eraser ring
+                                        if self.tool == DrawingTool::Eraser {
+                                            w.request_redraw();
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -360,20 +371,63 @@ impl ApplicationHandler<AppEvent> for DrawApp {
             } => {
                 match state {
                     ElementState::Pressed => {
-                        // Check if user clicked on the HUD to start dragging it
-                        if HudOverlay::contains_point(
+                        // Check if user clicked on the HUD (menu button or drag handle)
+                        let hit = HudOverlay::hit_test(
                             self.hud_pos,
                             self.cursor_pos,
                             self.scale_factor as f32,
-                        ) {
-                            self.drag_state = DragState::DraggingHud {
-                                drag_offset: self.cursor_pos - self.hud_pos,
-                            };
-                            if let Some(w) = &self.window {
-                                w.set_cursor(CursorIcon::Grabbing);
-                                w.request_redraw();
+                        );
+
+                        match hit {
+                            HudHitTarget::Tool(tool) => {
+                                self.tool = tool;
+                                if self.mode == AppMode::ClickThrough {
+                                    self.toggle_mode();
+                                } else if let Some(w) = &self.window {
+                                    w.set_cursor(CursorIcon::Pointer);
+                                    w.request_redraw();
+                                }
+                                return;
                             }
-                            return;
+                            HudHitTarget::Color(color) => {
+                                self.color = color;
+                                if let Some(w) = &self.window {
+                                    w.set_cursor(CursorIcon::Pointer);
+                                    w.request_redraw();
+                                }
+                                return;
+                            }
+                            HudHitTarget::ToggleMode => {
+                                self.toggle_mode();
+                                return;
+                            }
+                            HudHitTarget::Undo => {
+                                self.canvas.undo();
+                                if let Some(w) = &self.window {
+                                    w.request_redraw();
+                                }
+                                return;
+                            }
+                            HudHitTarget::Clear => {
+                                self.canvas.clear();
+                                if let Some(w) = &self.window {
+                                    w.request_redraw();
+                                }
+                                return;
+                            }
+                            HudHitTarget::DragHeader => {
+                                self.drag_state = DragState::DraggingHud {
+                                    drag_offset: self.cursor_pos - self.hud_pos,
+                                };
+                                if let Some(w) = &self.window {
+                                    w.set_cursor(CursorIcon::Grabbing);
+                                    w.request_redraw();
+                                }
+                                return;
+                            }
+                            HudHitTarget::None => {
+                                // Outside HUD, proceed to canvas drawing
+                            }
                         }
 
                         // Drawing / Erasing operations only in Drawing mode
@@ -412,22 +466,38 @@ impl ApplicationHandler<AppEvent> for DrawApp {
                         match std::mem::replace(&mut self.drag_state, DragState::Idle) {
                             DragState::DraggingHud { .. } => {
                                 if let Some(w) = &self.window {
+                                    let hit = HudOverlay::hit_test(
+                                        self.hud_pos,
+                                        self.cursor_pos,
+                                        self.scale_factor as f32,
+                                    );
                                     if self.mode == AppMode::ClickThrough {
-                                        // If still over HUD, remain Grab; otherwise re-enable pass-through
-                                        let is_over = HudOverlay::contains_point(
-                                            self.hud_pos,
-                                            self.cursor_pos,
-                                            self.scale_factor as f32,
-                                        );
-                                        if is_over {
-                                            w.set_cursor(CursorIcon::Grab);
+                                        if hit != HudHitTarget::None {
+                                            let icon = match hit {
+                                                HudHitTarget::Tool(_)
+                                                | HudHitTarget::Color(_)
+                                                | HudHitTarget::ToggleMode
+                                                | HudHitTarget::Undo
+                                                | HudHitTarget::Clear => CursorIcon::Pointer,
+                                                _ => CursorIcon::Grab,
+                                            };
+                                            w.set_cursor(icon);
                                         } else {
                                             let _ = self.platform.set_click_through(w, true);
                                             self.is_click_through_active = true;
                                             w.set_cursor(CursorIcon::Default);
                                         }
                                     } else {
-                                        w.set_cursor(self.default_cursor_for_tool());
+                                        let icon = match hit {
+                                            HudHitTarget::Tool(_)
+                                            | HudHitTarget::Color(_)
+                                            | HudHitTarget::ToggleMode
+                                            | HudHitTarget::Undo
+                                            | HudHitTarget::Clear => CursorIcon::Pointer,
+                                            HudHitTarget::DragHeader => CursorIcon::Grab,
+                                            HudHitTarget::None => self.default_cursor_for_tool(),
+                                        };
+                                        w.set_cursor(icon);
                                     }
                                     w.request_redraw();
                                 }
@@ -567,11 +637,21 @@ impl ApplicationHandler<AppEvent> for DrawApp {
                 if is_over_hud {
                     if self.is_click_through_active {
                         // Cursor hovered over HUD! Temporarily disable click-through
-                        // so user can immediately click, grab, and drag the HUD card
+                        // so user can immediately click menu buttons, pick colors, or drag the HUD
                         let _ = self.platform.set_click_through(window, false);
                         self.is_click_through_active = false;
-                        window.set_cursor(CursorIcon::Grab);
                     }
+                    let hit =
+                        HudOverlay::hit_test(self.hud_pos, global_cursor, self.scale_factor as f32);
+                    let cursor_icon = match hit {
+                        HudHitTarget::Tool(_)
+                        | HudHitTarget::Color(_)
+                        | HudHitTarget::ToggleMode
+                        | HudHitTarget::Undo
+                        | HudHitTarget::Clear => CursorIcon::Pointer,
+                        _ => CursorIcon::Grab,
+                    };
+                    window.set_cursor(cursor_icon);
                 } else if !self.is_click_through_active {
                     // Cursor left HUD! Re-enable click-through so clicks pass to background apps
                     let _ = self.platform.set_click_through(window, true);

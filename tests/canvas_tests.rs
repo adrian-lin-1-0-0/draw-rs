@@ -1,5 +1,6 @@
 use draw_rs::{
-    ArrowShape, BitmapFont, CanvasController, CircleShape, Drawable, Point2D, StrokeShape,
+    ArrowShape, BitmapFont, CanvasController, CircleShape, Drawable, HudHitTarget, HudOverlay,
+    Point2D, StrokeShape,
     app::state::{AppMode, DrawingTool, PaletteColor},
 };
 use tiny_skia::{Color, Pixmap};
@@ -233,4 +234,67 @@ fn test_palette_colors() {
     assert_eq!(PaletteColor::Coral.name(), "Coral");
     assert_eq!(PaletteColor::Amber.name(), "Amber");
     assert_eq!(PaletteColor::Violet.name(), "Violet");
+}
+
+#[test]
+fn test_hud_menu_hit_testing() {
+    let hud_pos = Point2D::new(50.0, 50.0);
+    let scale = 1.0;
+    let buttons = HudOverlay::get_buttons(hud_pos, scale);
+    assert_eq!(buttons.len(), 12);
+
+    // Test hitting each button at its center
+    for btn in &buttons {
+        let center = Point2D::new(btn.x + btn.width / 2.0, btn.y + btn.height / 2.0);
+        let hit = HudOverlay::hit_test(hud_pos, center, scale);
+        assert_eq!(hit, btn.target);
+    }
+
+    // Specific button target tests
+    assert_eq!(buttons[0].target, HudHitTarget::ToggleMode);
+    assert_eq!(buttons[1].target, HudHitTarget::Tool(DrawingTool::Pen));
+    assert_eq!(buttons[2].target, HudHitTarget::Tool(DrawingTool::Circle));
+    assert_eq!(buttons[3].target, HudHitTarget::Tool(DrawingTool::Arrow));
+    assert_eq!(buttons[4].target, HudHitTarget::Tool(DrawingTool::Eraser));
+    assert_eq!(buttons[5].target, HudHitTarget::Undo);
+    assert_eq!(buttons[6].target, HudHitTarget::Clear);
+    assert_eq!(buttons[7].target, HudHitTarget::Color(PaletteColor::Cyan));
+    assert_eq!(
+        buttons[8].target,
+        HudHitTarget::Color(PaletteColor::Emerald)
+    );
+    assert_eq!(buttons[9].target, HudHitTarget::Color(PaletteColor::Coral));
+    assert_eq!(buttons[10].target, HudHitTarget::Color(PaletteColor::Amber));
+    assert_eq!(
+        buttons[11].target,
+        HudHitTarget::Color(PaletteColor::Violet)
+    );
+
+    // Test blank card header area -> DragHeader
+    let drag_point = Point2D::new(hud_pos.x + 10.0, hud_pos.y + 10.0);
+    assert_eq!(
+        HudOverlay::hit_test(hud_pos, drag_point, scale),
+        HudHitTarget::DragHeader
+    );
+
+    // Test point far outside -> None
+    let outside_point = Point2D::new(0.0, 0.0);
+    assert_eq!(
+        HudOverlay::hit_test(hud_pos, outside_point, scale),
+        HudHitTarget::None
+    );
+
+    // Test rendering HUD onto pixmap
+    let mut pixmap = Pixmap::new(600, 300).expect("failed to create pixmap");
+    HudOverlay::render(
+        &mut pixmap,
+        AppMode::Drawing,
+        DrawingTool::Pen,
+        PaletteColor::Cyan,
+        5,
+        1.0,
+        hud_pos,
+    );
+    let has_pixels = pixmap.pixels().iter().any(|p| p.alpha() > 0);
+    assert!(has_pixels);
 }
