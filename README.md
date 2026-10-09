@@ -14,6 +14,13 @@
 **A lightweight, blazing-fast, transparent screen doodle overlay for macOS.**  
 Tailored specifically for **LeetCode problem solving**, **system design interviews**, **whiteboard live coding**, and **data structure visual explanations**!
 
+<br />
+
+<img src="./assets/demo.png" alt="draw-rs macOS Demo Screenshot" width="850" />
+
+<br /><br />
+
+[Demo](#-demo-preview) •
 [Features](#-core-features) •
 [Keybindings](#-keyboard-shortcuts--controls) •
 [SOLID Architecture](#-solid-software-architecture) •
@@ -21,6 +28,15 @@ Tailored specifically for **LeetCode problem solving**, **system design intervie
 [macOS Permissions](#-macos-permissions--transparency-guide) •
 [License](#-license)
 
+</div>
+
+---
+
+## 📸 Demo Preview
+
+<div align="center">
+  <img src="./assets/demo.png" alt="draw-rs Live Demo Preview" width="850" />
+  <p><em>Real-time transparent annotation over algorithmic problem solving & code editors</em></p>
 </div>
 
 ---

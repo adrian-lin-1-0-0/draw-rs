@@ -14,12 +14,28 @@
 **專為 macOS 使用者打造的高效能透明螢幕塗鴉工具**  
 專門輔助在 **LeetCode 刷題**、**系統架構設計**、**白板編程面試** 與 **線上教學演練** 時即時繪製資料結構！
 
+<br />
+
+<img src="./assets/demo.png" alt="draw-rs macOS 實機展示截圖" width="850" />
+
+<br /><br />
+
+[實機展示](#-實機展示-demo-preview) •
 [功能亮點](#-核心功能特點) •
 [快捷鍵操作](#-快捷鍵與操作指南) •
 [架構設計 (SOLID)](#-solid-軟體架構) •
 [快速啟動](#-快速啟動) •
 [macOS 權限設定](#-macos-系統權限配置指南)
 
+</div>
+
+---
+
+## 📸 實機展示 (Demo Preview)
+
+<div align="center">
+  <img src="./assets/demo.png" alt="draw-rs 實機展示截圖" width="850" />
+  <p><em>即時在 LeetCode 題目與編輯器上方進行透明向量標記與資料結構解說</em></p>
 </div>
 
 ---
