@@ -1,0 +1,35 @@
+# Language display name
+display_name: English
+
+# Operation mode labels
+mode:
+  drawing: DRAWING
+  click_through: PASS-THRU
+
+# Canvas shapes counter format
+shapes:
+  format: "({count} shapes)"
+
+# Action & mode toggle buttons
+buttons:
+  to_drawing: "[Draw Mode F1]"
+  to_passthru: "[Pass-Thru F1]"
+  undo: "Undo[Z]"
+  clear: "Clear[C]"
+
+# Layout hints & shortcuts
+hints:
+  drag: "::: Drag"
+  color_keys: "[1-5]"
+
+# HUD row headers
+labels:
+  tools: "TOOLS:"
+  color: "COLOR:"
+
+# Algorithm diagramming tools
+tools:
+  pen: "Pen[P]"
+  circle: Circle
+  arrow: Arrow
+  eraser: "Eraser[E]"

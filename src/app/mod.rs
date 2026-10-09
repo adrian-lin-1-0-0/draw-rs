@@ -40,6 +40,7 @@ pub struct DrawApp {
     tool: DrawingTool,
     color: PaletteColor,
     pub language: AppLanguage,
+    pub is_lang_menu_open: bool,
     stroke_width: f32,
     eraser_radius: f32,
     drag_state: DragState,
@@ -60,6 +61,7 @@ impl DrawApp {
             tool: DrawingTool::Pen,
             color: PaletteColor::Cyan,
             language: AppLanguage::default(),
+            is_lang_menu_open: false,
             stroke_width: 3.5,
             eraser_radius: 18.0,
             drag_state: DragState::Idle,
@@ -73,6 +75,7 @@ impl DrawApp {
     /// Toggle between active Drawing mode and passive Click-Through mode.
     pub fn toggle_mode(&mut self) {
         self.mode = self.mode.toggle();
+        self.is_lang_menu_open = false;
 
         if let Some(window) = &self.window {
             match self.mode {
@@ -83,6 +86,7 @@ impl DrawApp {
                         self.hud_pos,
                         self.cursor_pos,
                         self.scale_factor as f32,
+                        self.is_lang_menu_open,
                     );
                     if is_over_hud {
                         let _ = self.platform.set_click_through(window, false);
@@ -173,6 +177,7 @@ impl DrawApp {
             color: self.color,
             shape_count: self.canvas.shape_count(),
             language: self.language,
+            is_lang_menu_open: self.is_lang_menu_open,
         };
         HudOverlay::render(
             renderer.pixmap_mut(),
@@ -345,12 +350,14 @@ impl ApplicationHandler<AppEvent> for DrawApp {
                                     self.hud_pos,
                                     self.cursor_pos,
                                     self.scale_factor as f32,
+                                    self.is_lang_menu_open,
                                 );
                                 match hit {
                                     HudHitTarget::Tool(_)
                                     | HudHitTarget::Color(_)
                                     | HudHitTarget::ToggleMode
-                                    | HudHitTarget::ToggleLanguage
+                                    | HudHitTarget::ToggleLanguageMenu
+                                    | HudHitTarget::SelectLanguage(_)
                                     | HudHitTarget::Undo
                                     | HudHitTarget::Clear => {
                                         w.set_cursor(CursorIcon::Pointer);
@@ -385,10 +392,29 @@ impl ApplicationHandler<AppEvent> for DrawApp {
                             self.hud_pos,
                             self.cursor_pos,
                             self.scale_factor as f32,
+                            self.is_lang_menu_open,
                         );
 
                         match hit {
+                            HudHitTarget::ToggleLanguageMenu => {
+                                self.is_lang_menu_open = !self.is_lang_menu_open;
+                                if let Some(w) = &self.window {
+                                    w.set_cursor(CursorIcon::Pointer);
+                                    w.request_redraw();
+                                }
+                                return;
+                            }
+                            HudHitTarget::SelectLanguage(lang) => {
+                                self.language = lang;
+                                self.is_lang_menu_open = false;
+                                if let Some(w) = &self.window {
+                                    w.set_cursor(CursorIcon::Pointer);
+                                    w.request_redraw();
+                                }
+                                return;
+                            }
                             HudHitTarget::Tool(tool) => {
+                                self.is_lang_menu_open = false;
                                 self.tool = tool;
                                 if self.mode == AppMode::ClickThrough {
                                     self.toggle_mode();
@@ -399,6 +425,7 @@ impl ApplicationHandler<AppEvent> for DrawApp {
                                 return;
                             }
                             HudHitTarget::Color(color) => {
+                                self.is_lang_menu_open = false;
                                 self.color = color;
                                 if let Some(w) = &self.window {
                                     w.set_cursor(CursorIcon::Pointer);
@@ -407,18 +434,12 @@ impl ApplicationHandler<AppEvent> for DrawApp {
                                 return;
                             }
                             HudHitTarget::ToggleMode => {
+                                self.is_lang_menu_open = false;
                                 self.toggle_mode();
                                 return;
                             }
-                            HudHitTarget::ToggleLanguage => {
-                                self.language = self.language.toggle();
-                                if let Some(w) = &self.window {
-                                    w.set_cursor(CursorIcon::Pointer);
-                                    w.request_redraw();
-                                }
-                                return;
-                            }
                             HudHitTarget::Undo => {
+                                self.is_lang_menu_open = false;
                                 self.canvas.undo();
                                 if let Some(w) = &self.window {
                                     w.request_redraw();
@@ -426,6 +447,7 @@ impl ApplicationHandler<AppEvent> for DrawApp {
                                 return;
                             }
                             HudHitTarget::Clear => {
+                                self.is_lang_menu_open = false;
                                 self.canvas.clear();
                                 if let Some(w) = &self.window {
                                     w.request_redraw();
@@ -433,6 +455,7 @@ impl ApplicationHandler<AppEvent> for DrawApp {
                                 return;
                             }
                             HudHitTarget::DragHeader => {
+                                self.is_lang_menu_open = false;
                                 self.drag_state = DragState::DraggingHud {
                                     drag_offset: self.cursor_pos - self.hud_pos,
                                 };
@@ -443,7 +466,14 @@ impl ApplicationHandler<AppEvent> for DrawApp {
                                 return;
                             }
                             HudHitTarget::None => {
-                                // Outside HUD, proceed to canvas drawing
+                                // If user clicked outside HUD while dropdown menu was open, dismiss it
+                                if self.is_lang_menu_open {
+                                    self.is_lang_menu_open = false;
+                                    if let Some(w) = &self.window {
+                                        w.request_redraw();
+                                    }
+                                    return;
+                                }
                             }
                         }
 
@@ -487,6 +517,7 @@ impl ApplicationHandler<AppEvent> for DrawApp {
                                         self.hud_pos,
                                         self.cursor_pos,
                                         self.scale_factor as f32,
+                                        self.is_lang_menu_open,
                                     );
                                     if self.mode == AppMode::ClickThrough {
                                         if hit != HudHitTarget::None {
@@ -494,7 +525,8 @@ impl ApplicationHandler<AppEvent> for DrawApp {
                                                 HudHitTarget::Tool(_)
                                                 | HudHitTarget::Color(_)
                                                 | HudHitTarget::ToggleMode
-                                                | HudHitTarget::ToggleLanguage
+                                                | HudHitTarget::ToggleLanguageMenu
+                                                | HudHitTarget::SelectLanguage(_)
                                                 | HudHitTarget::Undo
                                                 | HudHitTarget::Clear => CursorIcon::Pointer,
                                                 _ => CursorIcon::Grab,
@@ -510,7 +542,8 @@ impl ApplicationHandler<AppEvent> for DrawApp {
                                             HudHitTarget::Tool(_)
                                             | HudHitTarget::Color(_)
                                             | HudHitTarget::ToggleMode
-                                            | HudHitTarget::ToggleLanguage
+                                            | HudHitTarget::ToggleLanguageMenu
+                                            | HudHitTarget::SelectLanguage(_)
                                             | HudHitTarget::Undo
                                             | HudHitTarget::Clear => CursorIcon::Pointer,
                                             HudHitTarget::DragHeader => CursorIcon::Grab,
@@ -588,7 +621,14 @@ impl ApplicationHandler<AppEvent> for DrawApp {
                     }
                 }
                 KeyCode::Escape => {
-                    event_loop.exit();
+                    if self.is_lang_menu_open {
+                        self.is_lang_menu_open = false;
+                        if let Some(w) = &self.window {
+                            w.request_redraw();
+                        }
+                    } else {
+                        event_loop.exit();
+                    }
                 }
                 KeyCode::Digit1 => {
                     self.color = PaletteColor::Cyan;
@@ -622,6 +662,7 @@ impl ApplicationHandler<AppEvent> for DrawApp {
                 }
                 KeyCode::KeyL => {
                     self.language = self.language.toggle();
+                    self.is_lang_menu_open = false;
                     if let Some(w) = &self.window {
                         w.request_redraw();
                     }
@@ -657,6 +698,7 @@ impl ApplicationHandler<AppEvent> for DrawApp {
                     self.hud_pos,
                     global_cursor,
                     self.scale_factor as f32,
+                    self.is_lang_menu_open,
                 );
 
                 if is_over_hud {
@@ -666,13 +708,18 @@ impl ApplicationHandler<AppEvent> for DrawApp {
                         let _ = self.platform.set_click_through(window, false);
                         self.is_click_through_active = false;
                     }
-                    let hit =
-                        HudOverlay::hit_test(self.hud_pos, global_cursor, self.scale_factor as f32);
+                    let hit = HudOverlay::hit_test(
+                        self.hud_pos,
+                        global_cursor,
+                        self.scale_factor as f32,
+                        self.is_lang_menu_open,
+                    );
                     let cursor_icon = match hit {
                         HudHitTarget::Tool(_)
                         | HudHitTarget::Color(_)
                         | HudHitTarget::ToggleMode
-                        | HudHitTarget::ToggleLanguage
+                        | HudHitTarget::ToggleLanguageMenu
+                        | HudHitTarget::SelectLanguage(_)
                         | HudHitTarget::Undo
                         | HudHitTarget::Clear => CursorIcon::Pointer,
                         _ => CursorIcon::Grab,

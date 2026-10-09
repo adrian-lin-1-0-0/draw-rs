@@ -238,9 +238,11 @@ fn test_font_rendering() {
         let font = fontdue::Font::from_bytes(bytes, fontdue::FontSettings::default());
         assert!(font.is_ok());
         let font = font.unwrap();
-        let (metrics, bitmap) = font.rasterize('畫', 16.0);
-        assert!(metrics.width > 0 && metrics.height > 0);
-        assert!(!bitmap.is_empty());
+        for ch in ['畫', '▼', '▲', '✓', '繁', '體'] {
+            let (metrics, bitmap) = font.rasterize(ch, 16.0);
+            assert!(metrics.width > 0 && metrics.height > 0);
+            assert!(!bitmap.is_empty());
+        }
     }
 }
 
@@ -260,10 +262,10 @@ fn test_hud_menu_hit_testing() {
     let buttons = HudOverlay::get_buttons(hud_pos, scale);
     assert_eq!(buttons.len(), 13);
 
-    // Test hitting each button at its center
+    // Test hitting each button at its center (when dropdown is closed)
     for btn in &buttons {
         let center = Point2D::new(btn.x + btn.width / 2.0, btn.y + btn.height / 2.0);
-        let hit = HudOverlay::hit_test(hud_pos, center, scale);
+        let hit = HudOverlay::hit_test(hud_pos, center, scale, false);
         assert_eq!(hit, btn.target);
     }
 
@@ -286,23 +288,51 @@ fn test_hud_menu_hit_testing() {
         buttons[11].target,
         HudHitTarget::Color(PaletteColor::Violet)
     );
-    assert_eq!(buttons[12].target, HudHitTarget::ToggleLanguage);
+    assert_eq!(buttons[12].target, HudHitTarget::ToggleLanguageMenu);
+
+    // Test dropdown popover items when menu is open
+    let dropdown_items = HudOverlay::get_lang_dropdown_items(hud_pos, scale);
+    assert_eq!(dropdown_items.len(), 2);
+    assert_eq!(
+        dropdown_items[0].target,
+        HudHitTarget::SelectLanguage(AppLanguage::En)
+    );
+    assert_eq!(
+        dropdown_items[1].target,
+        HudHitTarget::SelectLanguage(AppLanguage::ZhTw)
+    );
+
+    for item in &dropdown_items {
+        let center = Point2D::new(item.x + item.width / 2.0, item.y + item.height / 2.0);
+        let hit = HudOverlay::hit_test(hud_pos, center, scale, true);
+        assert_eq!(hit, item.target);
+    }
 
     // Test blank card header area -> DragHeader
     let drag_point = Point2D::new(hud_pos.x + 10.0, hud_pos.y + 10.0);
     assert_eq!(
-        HudOverlay::hit_test(hud_pos, drag_point, scale),
+        HudOverlay::hit_test(hud_pos, drag_point, scale, false),
         HudHitTarget::DragHeader
     );
 
     // Test point far outside -> None
     let outside_point = Point2D::new(0.0, 0.0);
     assert_eq!(
-        HudOverlay::hit_test(hud_pos, outside_point, scale),
+        HudOverlay::hit_test(hud_pos, outside_point, scale, false),
         HudHitTarget::None
     );
 
-    // Test rendering HUD onto pixmap with both English and Traditional Chinese
+    // Test contains_point with dropdown open vs closed
+    let (mx, my, mw, mh) = HudOverlay::get_lang_dropdown_rect(hud_pos, scale);
+    let dropdown_point = Point2D::new(mx + mw / 2.0, my + mh / 2.0);
+    assert!(HudOverlay::contains_point(
+        hud_pos,
+        dropdown_point,
+        scale,
+        true
+    ));
+
+    // Test rendering HUD onto pixmap with both English (closed) and Traditional Chinese (open dropdown)
     let mut pixmap_en = Pixmap::new(600, 300).expect("failed to create pixmap");
     let params_en = HudRenderParams {
         mode: AppMode::Drawing,
@@ -310,6 +340,7 @@ fn test_hud_menu_hit_testing() {
         color: PaletteColor::Cyan,
         shape_count: 5,
         language: AppLanguage::En,
+        is_lang_menu_open: false,
     };
     HudOverlay::render(&mut pixmap_en, &params_en, 1.0, hud_pos);
     assert!(pixmap_en.pixels().iter().any(|p| p.alpha() > 0));
@@ -321,6 +352,7 @@ fn test_hud_menu_hit_testing() {
         color: PaletteColor::Violet,
         shape_count: 3,
         language: AppLanguage::ZhTw,
+        is_lang_menu_open: true,
     };
     HudOverlay::render(&mut pixmap_zh, &params_zh, 1.0, hud_pos);
     assert!(pixmap_zh.pixels().iter().any(|p| p.alpha() > 0));
@@ -329,7 +361,16 @@ fn test_hud_menu_hit_testing() {
 #[test]
 fn test_app_language_i18n() {
     let mut lang = AppLanguage::En;
-    assert_eq!(lang.lang_btn_label(), "EN/中[L]");
+    assert_eq!(lang.dropdown_label(false), "English ▼");
+    assert_eq!(lang.dropdown_label(true), "English ▲");
+    assert_eq!(
+        AppLanguage::dropdown_item_label(AppLanguage::En, true),
+        "✓ English"
+    );
+    assert_eq!(
+        AppLanguage::dropdown_item_label(AppLanguage::ZhTw, false),
+        "  繁體中文"
+    );
     assert_eq!(lang.mode_title(AppMode::Drawing), "DRAWING");
     assert_eq!(lang.tool_name(DrawingTool::Eraser), "Eraser[E]");
     assert_eq!(lang.action_undo(), "Undo[Z]");
@@ -337,7 +378,8 @@ fn test_app_language_i18n() {
 
     lang = lang.toggle();
     assert_eq!(lang, AppLanguage::ZhTw);
-    assert_eq!(lang.lang_btn_label(), "中/EN[L]");
+    assert_eq!(lang.dropdown_label(false), "繁體中文 ▼");
+    assert_eq!(lang.dropdown_label(true), "繁體中文 ▲");
     assert_eq!(lang.mode_title(AppMode::Drawing), "繪圖模式");
     assert_eq!(lang.tool_name(DrawingTool::Eraser), "橡皮擦[E]");
     assert_eq!(lang.action_undo(), "復原[Z]");

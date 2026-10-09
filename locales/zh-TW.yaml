@@ -1,0 +1,35 @@
+# 語言顯示名稱
+display_name: 繁體中文
+
+# 運作模式名稱
+mode:
+  drawing: 繪圖模式
+  click_through: 滑鼠穿透
+
+# 畫面圖形數量格式
+shapes:
+  format: "({count} 個圖形)"
+
+# 動作與模式切換按鈕
+buttons:
+  to_drawing: "[切換繪圖 F1]"
+  to_passthru: "[切換穿透 F1]"
+  undo: "復原[Z]"
+  clear: "清除[C]"
+
+# 介面提示與快捷鍵
+hints:
+  drag: "::: 拖移"
+  color_keys: "[1-5]"
+
+# 提示列標籤
+labels:
+  tools: "工具:"
+  color: "顏色:"
+
+# 演算法圖形工具
+tools:
+  pen: "畫筆[P]"
+  circle: 節點
+  arrow: 箭頭
+  eraser: "橡皮擦[E]"

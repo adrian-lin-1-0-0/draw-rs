@@ -12,7 +12,8 @@ pub enum HudHitTarget {
     Tool(DrawingTool),
     Color(PaletteColor),
     ToggleMode,
-    ToggleLanguage,
+    ToggleLanguageMenu,
+    SelectLanguage(AppLanguage),
     Undo,
     Clear,
 }
@@ -44,6 +45,7 @@ pub struct HudRenderParams {
     pub color: PaletteColor,
     pub shape_count: usize,
     pub language: AppLanguage,
+    pub is_lang_menu_open: bool,
 }
 
 /// Renders a sleek, translucent floating HUD card displaying the operational
@@ -64,13 +66,31 @@ impl HudOverlay {
         )
     }
 
-    /// Check if a physical cursor coordinate lies within the HUD card bounding box.
-    pub fn contains_point(hud_pos: Point2D, point: Point2D, scale_factor: f32) -> bool {
+    /// Check if a physical cursor coordinate lies within the HUD card or its open dropdown popover.
+    pub fn contains_point(
+        hud_pos: Point2D,
+        point: Point2D,
+        scale_factor: f32,
+        is_lang_menu_open: bool,
+    ) -> bool {
         let (width, height) = Self::get_card_size(scale_factor);
-        point.x >= hud_pos.x
+        let in_card = point.x >= hud_pos.x
             && point.x <= hud_pos.x + width
             && point.y >= hud_pos.y
-            && point.y <= hud_pos.y + height
+            && point.y <= hud_pos.y + height;
+
+        if in_card {
+            return true;
+        }
+
+        if is_lang_menu_open {
+            let (mx, my, mw, mh) = Self::get_lang_dropdown_rect(hud_pos, scale_factor);
+            if point.x >= mx && point.x <= mx + mw && point.y >= my && point.y <= my + mh {
+                return true;
+            }
+        }
+
+        false
     }
 
     /// Computes the exact bounding rectangles of all 13 interactive buttons on the HUD.
@@ -176,21 +196,74 @@ impl HudOverlay {
                 width: 28.0 * ui_scale,
                 height: 24.0 * ui_scale,
             },
-            // 12: Row 3 Language Toggle Button [EN/中]
+            // 12: Row 3 Language Dropdown Trigger Button
             HudButtonRect {
-                target: HudHitTarget::ToggleLanguage,
-                x: card_x + 418.0 * ui_scale,
+                target: HudHitTarget::ToggleLanguageMenu,
+                x: card_x + 395.0 * ui_scale,
                 y: card_y + 79.0 * ui_scale,
-                width: 80.0 * ui_scale,
+                width: 102.0 * ui_scale,
                 height: 24.0 * ui_scale,
             },
         ]
     }
 
-    /// Performs hit-testing against the HUD.
+    /// Returns the bounding rectangle (x, y, width, height) of the language dropdown popover card.
+    pub fn get_lang_dropdown_rect(hud_pos: Point2D, scale_factor: f32) -> (f32, f32, f32, f32) {
+        let ui_scale = (scale_factor.max(1.0) * 0.9).clamp(1.0, 2.5);
+        let card_x = hud_pos.x;
+        let card_y = hud_pos.y;
+        let menu_w = 116.0 * ui_scale;
+        let menu_h = 62.0 * ui_scale;
+        let menu_x = card_x + (395.0 + 102.0) * ui_scale - menu_w;
+        let menu_y = card_y + (79.0 + 24.0 + 5.0) * ui_scale;
+        (menu_x, menu_y, menu_w, menu_h)
+    }
+
+    /// Returns the interactive item rectangles for the language dropdown menu.
+    pub fn get_lang_dropdown_items(hud_pos: Point2D, scale_factor: f32) -> [HudButtonRect; 2] {
+        let ui_scale = (scale_factor.max(1.0) * 0.9).clamp(1.0, 2.5);
+        let (menu_x, menu_y, menu_w, _) = Self::get_lang_dropdown_rect(hud_pos, scale_factor);
+        let pad = 4.0 * ui_scale;
+        let item_w = menu_w - pad * 2.0;
+        let item_h = 24.0 * ui_scale;
+        let y0 = menu_y + 4.0 * ui_scale;
+        let y1 = y0 + item_h + 3.0 * ui_scale;
+
+        [
+            HudButtonRect {
+                target: HudHitTarget::SelectLanguage(AppLanguage::En),
+                x: menu_x + pad,
+                y: y0,
+                width: item_w,
+                height: item_h,
+            },
+            HudButtonRect {
+                target: HudHitTarget::SelectLanguage(AppLanguage::ZhTw),
+                x: menu_x + pad,
+                y: y1,
+                width: item_w,
+                height: item_h,
+            },
+        ]
+    }
+
+    /// Performs hit-testing against the HUD and any open dropdown popover.
     /// Returns the specific button hit, or `DragHeader` if clicking elsewhere on the card,
     /// or `None` if completely outside.
-    pub fn hit_test(hud_pos: Point2D, point: Point2D, scale_factor: f32) -> HudHitTarget {
+    pub fn hit_test(
+        hud_pos: Point2D,
+        point: Point2D,
+        scale_factor: f32,
+        is_lang_menu_open: bool,
+    ) -> HudHitTarget {
+        if is_lang_menu_open {
+            for item in Self::get_lang_dropdown_items(hud_pos, scale_factor) {
+                if item.contains(point) {
+                    return item.target;
+                }
+            }
+        }
+
         let buttons = Self::get_buttons(hud_pos, scale_factor);
         for btn in buttons {
             if btn.contains(point) {
@@ -198,7 +271,7 @@ impl HudOverlay {
             }
         }
 
-        if Self::contains_point(hud_pos, point, scale_factor) {
+        if Self::contains_point(hud_pos, point, scale_factor, false) {
             HudHitTarget::DragHeader
         } else {
             HudHitTarget::None
@@ -539,24 +612,134 @@ impl HudOverlay {
             0.82 * ui_scale,
         );
 
-        // Language toggle button [EN/中]
+        // Language dropdown trigger button
         let lang_btn = buttons[12];
-        let lang_label = language.lang_btn_label();
+        let is_menu_open = params.is_lang_menu_open;
+        let lang_label = language.dropdown_label(is_menu_open);
+
+        let (trigger_bg, trigger_border) = if is_menu_open {
+            (
+                Color::from_rgba8(56, 189, 248, 55),
+                Color::from_rgba8(56, 189, 248, 160),
+            )
+        } else {
+            (
+                Color::from_rgba8(56, 189, 248, 25),
+                Color::from_rgba8(56, 189, 248, 90),
+            )
+        };
+
         Self::draw_button_pill(
             pixmap,
             &lang_btn,
             4.0 * ui_scale,
-            Color::from_rgba8(56, 189, 248, 25),
-            Color::from_rgba8(56, 189, 248, 90),
-            1.0 * ui_scale,
+            trigger_bg,
+            trigger_border,
+            1.2 * ui_scale,
         );
         Self::draw_centered_text(
             pixmap,
             &lang_btn,
-            lang_label,
-            Color::from_rgba8(186, 230, 253, 240),
+            &lang_label,
+            Color::from_rgba8(224, 242, 254, 250),
             0.84 * ui_scale,
         );
+
+        // If dropdown is open, render the popover card & items
+        if is_menu_open {
+            let (menu_x, menu_y, menu_w, menu_h) =
+                Self::get_lang_dropdown_rect(hud_pos, scale_factor);
+            let corner_r = 7.0 * ui_scale;
+
+            // Popover soft shadow
+            if let Some(shadow_path) = Self::rounded_rect_path(
+                menu_x - 2.0 * ui_scale,
+                menu_y - 1.0 * ui_scale,
+                menu_w + 4.0 * ui_scale,
+                menu_h + 4.0 * ui_scale,
+                corner_r + 2.0 * ui_scale,
+            ) {
+                let mut shadow_paint = Paint::default();
+                shadow_paint.set_color(Color::from_rgba8(0, 0, 0, 75));
+                shadow_paint.anti_alias = true;
+                pixmap.fill_path(
+                    &shadow_path,
+                    &shadow_paint,
+                    FillRule::Winding,
+                    Transform::identity(),
+                    None,
+                );
+            }
+
+            // Popover background
+            if let Some(menu_path) =
+                Self::rounded_rect_path(menu_x, menu_y, menu_w, menu_h, corner_r)
+            {
+                let mut bg_paint = Paint::default();
+                bg_paint.set_color(Color::from_rgba8(15, 23, 42, 245));
+                bg_paint.anti_alias = true;
+                pixmap.fill_path(
+                    &menu_path,
+                    &bg_paint,
+                    FillRule::Winding,
+                    Transform::identity(),
+                    None,
+                );
+
+                let mut border_paint = Paint::default();
+                border_paint.set_color(Color::from_rgba8(56, 189, 248, 100));
+                border_paint.anti_alias = true;
+                let stroke = Stroke {
+                    width: 1.2 * ui_scale,
+                    ..Default::default()
+                };
+                pixmap.stroke_path(
+                    &menu_path,
+                    &border_paint,
+                    &stroke,
+                    Transform::identity(),
+                    None,
+                );
+            }
+
+            // Render items
+            let items = Self::get_lang_dropdown_items(hud_pos, scale_factor);
+            let options = [(items[0], AppLanguage::En), (items[1], AppLanguage::ZhTw)];
+
+            for (item_btn, item_lang) in options {
+                let is_active = language == item_lang;
+                let item_text = AppLanguage::dropdown_item_label(item_lang, is_active);
+
+                let (item_bg, item_border, text_color) = if is_active {
+                    (
+                        Color::from_rgba8(56, 189, 248, 50),
+                        Color::from_rgba8(56, 189, 248, 140),
+                        Color::from_rgba8(255, 255, 255, 255),
+                    )
+                } else {
+                    (
+                        Color::from_rgba8(255, 255, 255, 8),
+                        Color::from_rgba8(255, 255, 255, 20),
+                        Color::from_rgba8(203, 213, 225, 220),
+                    )
+                };
+
+                Self::draw_button_pill(
+                    pixmap,
+                    &item_btn,
+                    4.0 * ui_scale,
+                    item_bg,
+                    item_border,
+                    1.0 * ui_scale,
+                );
+
+                let font_scale = 0.84 * ui_scale;
+                let (_, text_h) = BitmapFont::measure_text(&item_text, font_scale);
+                let text_x = item_btn.x + 8.0 * ui_scale;
+                let text_y = item_btn.y + (item_btn.height - text_h) / 2.0;
+                BitmapFont::draw_text(pixmap, text_x, text_y, &item_text, text_color, font_scale);
+            }
+        }
     }
 
     /// Helper to render a rounded rectangle button pill.

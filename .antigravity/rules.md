@@ -23,10 +23,13 @@
 The project strictly follows the **Single Responsibility Principle (SRP)** with explicit module boundaries:
 
 ```text
+locales/                 # [Localization Resources] Compile-time embedded YAML locale definitions
+├── en.yaml               # English strings dictionary
+└── zh-TW.yaml            # Traditional Chinese (繁體中文) strings dictionary
 src/
 ├── app/                  # [Coordinator & State Machine] Application coordinator and state machine
 │   ├── mod.rs            # DrawApp (implements winit::application::ApplicationHandler)
-│   ├── i18n.rs           # AppLanguage localization system (English & Traditional Chinese)
+│   ├── i18n.rs           # AppLanguage localization system (deserializes embedded YAML)
 │   └── state.rs          # AppMode, DrawingTool, DragState, PaletteColor definitions
 ├── controller/           # [Canvas Controller] High-level canvas history and undo stack
 │   ├── mod.rs
