@@ -1,7 +1,34 @@
-use tiny_skia::{Color, Paint, Pixmap, Rect, Transform};
+use std::sync::OnceLock;
+use tiny_skia::{Color, Paint, Pixmap, PremultipliedColorU8, Rect, Transform};
 
-/// Compact, zero-dependency 8x8 bitmap font supporting standard ASCII printable characters.
-/// Perfect for UI HUD overlays without relying on system fonts or external asset files.
+/// Static cache for system CJK/Unicode font loaded via fontdue.
+static SYSTEM_FONT: OnceLock<Option<fontdue::Font>> = OnceLock::new();
+
+fn get_system_font() -> Option<&'static fontdue::Font> {
+    SYSTEM_FONT
+        .get_or_init(|| {
+            let candidates = [
+                "/System/Library/Fonts/Hiragino Sans GB.ttc",
+                "/System/Library/Fonts/STHeiti Light.ttc",
+                "/System/Library/Fonts/STHeiti Medium.ttc",
+                "/System/Library/Fonts/Supplemental/Songti.ttc",
+                "/System/Library/Fonts/Helvetica.ttc",
+            ];
+            for path in candidates {
+                if let Ok(bytes) = std::fs::read(path)
+                    && let Ok(font) =
+                        fontdue::Font::from_bytes(bytes, fontdue::FontSettings::default())
+                {
+                    return Some(font);
+                }
+            }
+            None
+        })
+        .as_ref()
+}
+
+/// High-performance font renderer supporting both Unicode (Chinese/CJK) and ASCII,
+/// with automatic antialiasing and fallback to a zero-dependency 8x8 bitmap font table.
 pub struct BitmapFont;
 
 impl BitmapFont {
@@ -27,8 +54,89 @@ impl BitmapFont {
         }
     }
 
-    /// Renders a text string with kerning and newline handling.
+    /// Renders a text string with TrueType antialiasing (supports both Chinese & ASCII),
+    /// falling back to the built-in 8x8 bitmap font if system fonts are unavailable.
     pub fn draw_text(pixmap: &mut Pixmap, x: f32, y: f32, text: &str, color: Color, scale: f32) {
+        if let Some(font) = get_system_font() {
+            let font_size = (11.5 * scale).max(9.0);
+            let mut cursor_x = x;
+            let mut cursor_y = y;
+            let line_step_y = font_size * 1.35;
+
+            let p_width = pixmap.width() as i32;
+            let p_height = pixmap.height() as i32;
+            let pixels = pixmap.pixels_mut();
+
+            let cr = color.red();
+            let cg = color.green();
+            let cb = color.blue();
+            let ca = color.alpha();
+
+            for c in text.chars() {
+                if c == '\n' {
+                    cursor_x = x;
+                    cursor_y += line_step_y;
+                    continue;
+                }
+
+                let (metrics, bitmap) = font.rasterize(c, font_size);
+                if metrics.width > 0 && metrics.height > 0 {
+                    let baseline_y = cursor_y + font_size * 0.82;
+                    let glyph_x = cursor_x + metrics.xmin as f32;
+                    let glyph_y = baseline_y - (metrics.height as f32 + metrics.ymin as f32);
+
+                    for row in 0..metrics.height {
+                        let py = glyph_y as i32 + row as i32;
+                        if py < 0 || py >= p_height {
+                            continue;
+                        }
+                        let row_offset = (py as usize) * (p_width as usize);
+
+                        for col in 0..metrics.width {
+                            let px = glyph_x as i32 + col as i32;
+                            if px < 0 || px >= p_width {
+                                continue;
+                            }
+
+                            let alpha_byte = bitmap[row * metrics.width + col];
+                            if alpha_byte == 0 {
+                                continue;
+                            }
+
+                            let alpha = (alpha_byte as f32 / 255.0) * ca;
+                            let r = (cr * alpha * 255.0).round() as u8;
+                            let g = (cg * alpha * 255.0).round() as u8;
+                            let b = (cb * alpha * 255.0).round() as u8;
+                            let a_u8 = (alpha * 255.0).round() as u8;
+
+                            let idx = row_offset + (px as usize);
+                            let dst = &mut pixels[idx];
+                            let inv_a = 255 - a_u8 as u32;
+                            let dst_r = (dst.red() as u32 * inv_a) / 255 + r as u32;
+                            let dst_g = (dst.green() as u32 * inv_a) / 255 + g as u32;
+                            let dst_b = (dst.blue() as u32 * inv_a) / 255 + b as u32;
+                            let dst_a = (dst.alpha() as u32 * inv_a) / 255 + a_u8 as u32;
+
+                            if let Some(blended) = PremultipliedColorU8::from_rgba(
+                                dst_r.min(255) as u8,
+                                dst_g.min(255) as u8,
+                                dst_b.min(255) as u8,
+                                dst_a.min(255) as u8,
+                            ) {
+                                *dst = blended;
+                            }
+                        }
+                    }
+                }
+                cursor_x += metrics.advance_width;
+            }
+        } else {
+            Self::draw_bitmap_text(pixmap, x, y, text, color, scale);
+        }
+    }
+
+    /// Fallback bitmap text rendering.
+    fn draw_bitmap_text(pixmap: &mut Pixmap, x: f32, y: f32, text: &str, color: Color, scale: f32) {
         let mut cursor_x = x;
         let mut cursor_y = y;
         let char_step_x = (Self::CHAR_WIDTH + 1.0) * scale;
@@ -46,8 +154,24 @@ impl BitmapFont {
     }
 
     /// Returns the bounding dimensions (width, height) of a rendered string.
-    #[allow(dead_code)]
     pub fn measure_text(text: &str, scale: f32) -> (f32, f32) {
+        if let Some(font) = get_system_font() {
+            let font_size = (11.5 * scale).max(9.0);
+            let mut width: f32 = 0.0;
+            for c in text.chars() {
+                if c == '\n' {
+                    continue;
+                }
+                let metrics = font.metrics(c, font_size);
+                width += metrics.advance_width;
+            }
+            (width, font_size * 1.3)
+        } else {
+            Self::measure_bitmap_text(text, scale)
+        }
+    }
+
+    fn measure_bitmap_text(text: &str, scale: f32) -> (f32, f32) {
         let mut max_width: f32 = 0.0;
         let mut current_width: f32 = 0.0;
         let mut lines = 1;

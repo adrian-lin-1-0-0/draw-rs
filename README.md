@@ -71,19 +71,20 @@ When solving algorithmic problems on LeetCode, Codeforces, or during technical w
 │ ─────────────────────────────────────────────────────────────────────────────── │
 │ TOOLS: [Pen P] [Circle] [Arrow] [Eraser E]        [Undo Z]  [Clear C]           │
 │ ─────────────────────────────────────────────────────────────────────────────── │
-│ COLOR: [1:Cyan] [2:Emerald] [3:Coral] [4:Amber] [5:Violet]                      │
+│ COLOR: (●) (●) (●) (●) (●)   [1-5]                                   [EN/中 L]  │
 └─────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 | Key / Mouse | Action | Description |
 | :---: | :--- | :--- |
-| **Click Menu on HUD** | **Select Tool / Color / Action** | Click any tool, color swatch, Undo, Clear, or Pass-Thru button directly on the floating HUD |
+| **Click Menu on HUD** | **Select Tool / Color / Action / Language** | Click any tool, color swatch, Undo, Clear, Pass-Thru, or Language toggle button directly on the floating HUD |
 | **Drag HUD** | **Reposition HUD Card** | Click and drag anywhere on the HUD header or background to move it (active in **both** Drawing and Pass-Thru modes!) |
 | <kbd>F1</kbd> | **Toggle Mode (Global)** | Switch between **Drawing Mode** and **Click-Through Mode** (works globally even when unfocused) |
 | <kbd>F2</kbd> | **Cycle Tool** | Cycle: `Pen` ➔ `Circle (Tree/Graph Node)` ➔ `Arrow (Pointer/Edge)` ➔ `Eraser` |
 | <kbd>E</kbd> | **Eraser Tool** | Switch directly to **Eraser** to erase strokes and shapes with an interactive circular cursor |
 | <kbd>P</kbd> | **Pen Tool** | Switch directly back to **Pen** |
-| <kbd>1</kbd> ~ <kbd>5</kbd> | **Switch Palette Color** | `1: Cyan`, `2: Emerald`, `3: Coral`, `4: Amber`, `5: Violet` |
+| <kbd>1</kbd> ~ <kbd>5</kbd> | **Switch Palette Color** | Clean circular swatches: Cyan, Emerald, Coral, Amber, Violet |
+| <kbd>L</kbd> | **Toggle Language** | Switch interface language between **English** and **Traditional Chinese (繁體中文)** |
 | <kbd>Z</kbd> | **Undo** | Reversibly undo drawn shapes or restore erased strokes/shapes |
 | <kbd>C</kbd> | **Clear** | Clear all doodles and annotations on screen |
 | <kbd>Esc</kbd> | **Exit** | Close and gracefully quit the application |

@@ -1,3 +1,4 @@
+pub mod i18n;
 pub mod state;
 
 use std::sync::Arc;
@@ -14,7 +15,8 @@ use winit::window::{CursorIcon, Window, WindowId};
 use crate::controller::CanvasController;
 use crate::models::{Drawable, point::Point2D};
 use crate::platform::WindowPlatformController;
-use crate::render::{CanvasRenderer, HudHitTarget, HudOverlay};
+use crate::render::{CanvasRenderer, HudHitTarget, HudOverlay, HudRenderParams};
+pub use i18n::AppLanguage;
 use state::{AppMode, DragState, DrawingTool, PaletteColor};
 
 /// Custom application event triggered by global hotkeys or background threads.
@@ -37,6 +39,7 @@ pub struct DrawApp {
     mode: AppMode,
     tool: DrawingTool,
     color: PaletteColor,
+    pub language: AppLanguage,
     stroke_width: f32,
     eraser_radius: f32,
     drag_state: DragState,
@@ -56,6 +59,7 @@ impl DrawApp {
             mode: AppMode::Drawing,
             tool: DrawingTool::Pen,
             color: PaletteColor::Cyan,
+            language: AppLanguage::default(),
             stroke_width: 3.5,
             eraser_radius: 18.0,
             drag_state: DragState::Idle,
@@ -163,12 +167,16 @@ impl DrawApp {
         }
 
         // 4. Render draggable Status HUD at dynamic position
+        let hud_params = HudRenderParams {
+            mode: self.mode,
+            tool: self.tool,
+            color: self.color,
+            shape_count: self.canvas.shape_count(),
+            language: self.language,
+        };
         HudOverlay::render(
             renderer.pixmap_mut(),
-            self.mode,
-            self.tool,
-            self.color,
-            self.canvas.shape_count(),
+            &hud_params,
             self.scale_factor as f32,
             self.hud_pos,
         );
@@ -342,6 +350,7 @@ impl ApplicationHandler<AppEvent> for DrawApp {
                                     HudHitTarget::Tool(_)
                                     | HudHitTarget::Color(_)
                                     | HudHitTarget::ToggleMode
+                                    | HudHitTarget::ToggleLanguage
                                     | HudHitTarget::Undo
                                     | HudHitTarget::Clear => {
                                         w.set_cursor(CursorIcon::Pointer);
@@ -399,6 +408,14 @@ impl ApplicationHandler<AppEvent> for DrawApp {
                             }
                             HudHitTarget::ToggleMode => {
                                 self.toggle_mode();
+                                return;
+                            }
+                            HudHitTarget::ToggleLanguage => {
+                                self.language = self.language.toggle();
+                                if let Some(w) = &self.window {
+                                    w.set_cursor(CursorIcon::Pointer);
+                                    w.request_redraw();
+                                }
                                 return;
                             }
                             HudHitTarget::Undo => {
@@ -477,6 +494,7 @@ impl ApplicationHandler<AppEvent> for DrawApp {
                                                 HudHitTarget::Tool(_)
                                                 | HudHitTarget::Color(_)
                                                 | HudHitTarget::ToggleMode
+                                                | HudHitTarget::ToggleLanguage
                                                 | HudHitTarget::Undo
                                                 | HudHitTarget::Clear => CursorIcon::Pointer,
                                                 _ => CursorIcon::Grab,
@@ -492,6 +510,7 @@ impl ApplicationHandler<AppEvent> for DrawApp {
                                             HudHitTarget::Tool(_)
                                             | HudHitTarget::Color(_)
                                             | HudHitTarget::ToggleMode
+                                            | HudHitTarget::ToggleLanguage
                                             | HudHitTarget::Undo
                                             | HudHitTarget::Clear => CursorIcon::Pointer,
                                             HudHitTarget::DragHeader => CursorIcon::Grab,
@@ -601,6 +620,12 @@ impl ApplicationHandler<AppEvent> for DrawApp {
                         w.request_redraw();
                     }
                 }
+                KeyCode::KeyL => {
+                    self.language = self.language.toggle();
+                    if let Some(w) = &self.window {
+                        w.request_redraw();
+                    }
+                }
                 _ => {}
             },
 
@@ -647,6 +672,7 @@ impl ApplicationHandler<AppEvent> for DrawApp {
                         HudHitTarget::Tool(_)
                         | HudHitTarget::Color(_)
                         | HudHitTarget::ToggleMode
+                        | HudHitTarget::ToggleLanguage
                         | HudHitTarget::Undo
                         | HudHitTarget::Clear => CursorIcon::Pointer,
                         _ => CursorIcon::Grab,

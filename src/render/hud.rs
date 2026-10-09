@@ -1,4 +1,5 @@
 use super::font::BitmapFont;
+use crate::app::i18n::AppLanguage;
 use crate::app::state::{AppMode, DrawingTool, PaletteColor};
 use crate::models::point::Point2D;
 use tiny_skia::{Color, FillRule, Paint, Path, PathBuilder, Pixmap, Stroke, Transform};
@@ -11,6 +12,7 @@ pub enum HudHitTarget {
     Tool(DrawingTool),
     Color(PaletteColor),
     ToggleMode,
+    ToggleLanguage,
     Undo,
     Clear,
 }
@@ -34,8 +36,18 @@ impl HudButtonRect {
     }
 }
 
+/// Parameters passed to HUD overlay for rendering.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct HudRenderParams {
+    pub mode: AppMode,
+    pub tool: DrawingTool,
+    pub color: PaletteColor,
+    pub shape_count: usize,
+    pub language: AppLanguage,
+}
+
 /// Renders a sleek, translucent floating HUD card displaying the operational
-/// state, tools menu, palette colors, and quick actions.
+/// state, tools menu, clean palette color swatches, and language toggle.
 /// Supports clicking any menu button as well as dragging the card across the screen.
 pub struct HudOverlay;
 
@@ -61,54 +73,54 @@ impl HudOverlay {
             && point.y <= hud_pos.y + height
     }
 
-    /// Computes the exact bounding rectangles of all interactive buttons on the HUD.
-    pub fn get_buttons(hud_pos: Point2D, scale_factor: f32) -> [HudButtonRect; 12] {
+    /// Computes the exact bounding rectangles of all 13 interactive buttons on the HUD.
+    pub fn get_buttons(hud_pos: Point2D, scale_factor: f32) -> [HudButtonRect; 13] {
         let ui_scale = (scale_factor.max(1.0) * 0.9).clamp(1.0, 2.5);
         let card_x = hud_pos.x;
         let card_y = hud_pos.y;
 
         [
-            // Row 1: Mode Toggle button
+            // 0: Row 1 Mode Toggle button
             HudButtonRect {
                 target: HudHitTarget::ToggleMode,
-                x: card_x + 288.0 * ui_scale,
+                x: card_x + 276.0 * ui_scale,
                 y: card_y + 8.0 * ui_scale,
-                width: 122.0 * ui_scale,
+                width: 136.0 * ui_scale,
                 height: 22.0 * ui_scale,
             },
-            // Row 2: Tool Pen
+            // 1: Row 2 Tool Pen
             HudButtonRect {
                 target: HudHitTarget::Tool(DrawingTool::Pen),
-                x: card_x + 68.0 * ui_scale,
+                x: card_x + 64.0 * ui_scale,
                 y: card_y + 42.0 * ui_scale,
-                width: 56.0 * ui_scale,
+                width: 62.0 * ui_scale,
                 height: 24.0 * ui_scale,
             },
-            // Row 2: Tool Circle
+            // 2: Row 2 Tool Circle
             HudButtonRect {
                 target: HudHitTarget::Tool(DrawingTool::Circle),
-                x: card_x + 130.0 * ui_scale,
+                x: card_x + 132.0 * ui_scale,
                 y: card_y + 42.0 * ui_scale,
-                width: 68.0 * ui_scale,
+                width: 66.0 * ui_scale,
                 height: 24.0 * ui_scale,
             },
-            // Row 2: Tool Arrow
+            // 3: Row 2 Tool Arrow
             HudButtonRect {
                 target: HudHitTarget::Tool(DrawingTool::Arrow),
                 x: card_x + 204.0 * ui_scale,
                 y: card_y + 42.0 * ui_scale,
-                width: 64.0 * ui_scale,
+                width: 62.0 * ui_scale,
                 height: 24.0 * ui_scale,
             },
-            // Row 2: Tool Eraser
+            // 4: Row 2 Tool Eraser
             HudButtonRect {
                 target: HudHitTarget::Tool(DrawingTool::Eraser),
-                x: card_x + 274.0 * ui_scale,
+                x: card_x + 272.0 * ui_scale,
                 y: card_y + 42.0 * ui_scale,
-                width: 76.0 * ui_scale,
+                width: 82.0 * ui_scale,
                 height: 24.0 * ui_scale,
             },
-            // Row 2: Action Undo
+            // 5: Row 2 Action Undo
             HudButtonRect {
                 target: HudHitTarget::Undo,
                 x: card_x + 365.0 * ui_scale,
@@ -116,7 +128,7 @@ impl HudOverlay {
                 width: 64.0 * ui_scale,
                 height: 24.0 * ui_scale,
             },
-            // Row 2: Action Clear
+            // 6: Row 2 Action Clear
             HudButtonRect {
                 target: HudHitTarget::Clear,
                 x: card_x + 435.0 * ui_scale,
@@ -124,44 +136,52 @@ impl HudOverlay {
                 width: 64.0 * ui_scale,
                 height: 24.0 * ui_scale,
             },
-            // Row 3: Color 1 (Cyan)
+            // 7: Row 3 Color 1 (Cyan) - Sleek icon chip without redundant text
             HudButtonRect {
                 target: HudHitTarget::Color(PaletteColor::Cyan),
-                x: card_x + 68.0 * ui_scale,
+                x: card_x + 64.0 * ui_scale,
                 y: card_y + 79.0 * ui_scale,
-                width: 78.0 * ui_scale,
+                width: 28.0 * ui_scale,
                 height: 24.0 * ui_scale,
             },
-            // Row 3: Color 2 (Emerald)
+            // 8: Row 3 Color 2 (Emerald)
             HudButtonRect {
                 target: HudHitTarget::Color(PaletteColor::Emerald),
-                x: card_x + 152.0 * ui_scale,
+                x: card_x + 98.0 * ui_scale,
                 y: card_y + 79.0 * ui_scale,
-                width: 90.0 * ui_scale,
+                width: 28.0 * ui_scale,
                 height: 24.0 * ui_scale,
             },
-            // Row 3: Color 3 (Coral)
+            // 9: Row 3 Color 3 (Coral)
             HudButtonRect {
                 target: HudHitTarget::Color(PaletteColor::Coral),
-                x: card_x + 248.0 * ui_scale,
+                x: card_x + 132.0 * ui_scale,
                 y: card_y + 79.0 * ui_scale,
-                width: 78.0 * ui_scale,
+                width: 28.0 * ui_scale,
                 height: 24.0 * ui_scale,
             },
-            // Row 3: Color 4 (Amber)
+            // 10: Row 3 Color 4 (Amber)
             HudButtonRect {
                 target: HudHitTarget::Color(PaletteColor::Amber),
-                x: card_x + 332.0 * ui_scale,
+                x: card_x + 166.0 * ui_scale,
                 y: card_y + 79.0 * ui_scale,
-                width: 78.0 * ui_scale,
+                width: 28.0 * ui_scale,
                 height: 24.0 * ui_scale,
             },
-            // Row 3: Color 5 (Violet)
+            // 11: Row 3 Color 5 (Violet)
             HudButtonRect {
                 target: HudHitTarget::Color(PaletteColor::Violet),
-                x: card_x + 416.0 * ui_scale,
+                x: card_x + 200.0 * ui_scale,
                 y: card_y + 79.0 * ui_scale,
-                width: 82.0 * ui_scale,
+                width: 28.0 * ui_scale,
+                height: 24.0 * ui_scale,
+            },
+            // 12: Row 3 Language Toggle Button [EN/中]
+            HudButtonRect {
+                target: HudHitTarget::ToggleLanguage,
+                x: card_x + 418.0 * ui_scale,
+                y: card_y + 79.0 * ui_scale,
+                width: 80.0 * ui_scale,
                 height: 24.0 * ui_scale,
             },
         ]
@@ -185,16 +205,19 @@ impl HudOverlay {
         }
     }
 
-    /// Renders the entire interactive HUD onto the pixmap.
+    /// Renders the entire interactive HUD onto the pixmap with full i18n support.
     pub fn render(
         pixmap: &mut Pixmap,
-        mode: AppMode,
-        tool: DrawingTool,
-        color: PaletteColor,
-        shape_count: usize,
+        params: &HudRenderParams,
         scale_factor: f32,
         hud_pos: Point2D,
     ) {
+        let mode = params.mode;
+        let tool = params.tool;
+        let color = params.color;
+        let shape_count = params.shape_count;
+        let language = params.language;
+
         let ui_scale = (scale_factor.max(1.0) * 0.9).clamp(1.0, 2.5);
         let card_x = hud_pos.x;
         let card_y = hud_pos.y;
@@ -205,9 +228,8 @@ impl HudOverlay {
         if let Some(bg_path) =
             Self::rounded_rect_path(card_x, card_y, card_width, card_height, corner_radius)
         {
-            // Dark translucent slate fill (rgba(15, 23, 42, 0.90))
             let mut bg_paint = Paint::default();
-            bg_paint.set_color(Color::from_rgba8(15, 23, 42, 230));
+            bg_paint.set_color(Color::from_rgba8(15, 23, 42, 232));
             bg_paint.anti_alias = true;
             pixmap.fill_path(
                 &bg_path,
@@ -217,7 +239,6 @@ impl HudOverlay {
                 None,
             );
 
-            // Subtle luminous border
             let mut border_paint = Paint::default();
             let border_color = match mode {
                 AppMode::Drawing => Color::from_rgba8(34, 197, 94, 180), // Emerald accent
@@ -282,13 +303,10 @@ impl HudOverlay {
             );
         }
 
-        let mode_title = match mode {
-            AppMode::Drawing => "DRAWING",
-            AppMode::ClickThrough => "CLICK-THRU",
-        };
+        let mode_title = language.mode_title(mode);
         let title_color = match mode {
-            AppMode::Drawing => Color::from_rgba8(74, 222, 128, 255), // Green 400
-            AppMode::ClickThrough => Color::from_rgba8(56, 189, 248, 255), // Sky 400
+            AppMode::Drawing => Color::from_rgba8(74, 222, 128, 255),
+            AppMode::ClickThrough => Color::from_rgba8(56, 189, 248, 255),
         };
         BitmapFont::draw_text(
             pixmap,
@@ -299,10 +317,10 @@ impl HudOverlay {
             1.15 * ui_scale,
         );
 
-        let shape_str = format!("({shape_count} shapes)");
+        let shape_str = language.shape_count(shape_count);
         BitmapFont::draw_text(
             pixmap,
-            card_x + 135.0 * ui_scale,
+            card_x + 138.0 * ui_scale,
             card_y + 15.0 * ui_scale,
             &shape_str,
             Color::from_rgba8(148, 163, 184, 220),
@@ -310,12 +328,9 @@ impl HudOverlay {
         );
 
         // Mode Toggle Button (Row 1)
-        let mode_btn_text = match mode {
-            AppMode::Drawing => "[Pass-Thru F1]",
-            AppMode::ClickThrough => "[Draw Mode F1]",
-        };
         let buttons = Self::get_buttons(hud_pos, scale_factor);
         let mode_btn = buttons[0];
+        let mode_btn_text = language.mode_toggle_btn(mode);
         Self::draw_button_pill(
             pixmap,
             &mode_btn,
@@ -333,34 +348,37 @@ impl HudOverlay {
         );
 
         // Drag grip hint (Row 1 right)
+        let drag_hint = language.drag_hint();
         BitmapFont::draw_text(
             pixmap,
             card_x + 424.0 * ui_scale,
             card_y + 15.0 * ui_scale,
-            "::: Drag",
+            drag_hint,
             Color::from_rgba8(148, 163, 184, 180),
             0.88 * ui_scale,
         );
 
         // 4. Row 2: Tools (Label + Pen + Circle + Arrow + Eraser + Undo + Clear)
+        let tools_label = language.tools_label();
         BitmapFont::draw_text(
             pixmap,
             card_x + 14.0 * ui_scale,
             card_y + 48.0 * ui_scale,
-            "TOOLS:",
+            tools_label,
             Color::from_rgba8(148, 163, 184, 220),
             0.92 * ui_scale,
         );
 
         let tool_items = [
-            (buttons[1], DrawingTool::Pen, "Pen[P]"),
-            (buttons[2], DrawingTool::Circle, "Circle"),
-            (buttons[3], DrawingTool::Arrow, "Arrow"),
-            (buttons[4], DrawingTool::Eraser, "Eraser[E]"),
+            (buttons[1], DrawingTool::Pen),
+            (buttons[2], DrawingTool::Circle),
+            (buttons[3], DrawingTool::Arrow),
+            (buttons[4], DrawingTool::Eraser),
         ];
 
-        for (btn, t, label) in tool_items {
+        for (btn, t) in tool_items {
             let is_active = tool == t;
+            let label = language.tool_name(t);
             let (bg, border, text_col) = if is_active {
                 (
                     Color::from_rgba8(56, 189, 248, 60),
@@ -392,6 +410,7 @@ impl HudOverlay {
 
         // Action: Undo
         let undo_btn = buttons[5];
+        let undo_text = language.action_undo();
         Self::draw_button_pill(
             pixmap,
             &undo_btn,
@@ -403,13 +422,14 @@ impl HudOverlay {
         Self::draw_centered_text(
             pixmap,
             &undo_btn,
-            "Undo[Z]",
+            undo_text,
             Color::from_rgba8(253, 230, 138, 240),
             0.86 * ui_scale,
         );
 
         // Action: Clear
         let clear_btn = buttons[6];
+        let clear_text = language.action_clear();
         Self::draw_button_pill(
             pixmap,
             &clear_btn,
@@ -421,93 +441,122 @@ impl HudOverlay {
         Self::draw_centered_text(
             pixmap,
             &clear_btn,
-            "Clear[C]",
+            clear_text,
             Color::from_rgba8(254, 202, 202, 240),
             0.86 * ui_scale,
         );
 
-        // 5. Row 3: Colors (Label + 5 Interactive Color Swatch Pills)
+        // 5. Row 3: Pure Color Chips (No redundant text labels) + Language Switcher
+        let color_label = language.color_label();
         BitmapFont::draw_text(
             pixmap,
             card_x + 14.0 * ui_scale,
             card_y + 85.0 * ui_scale,
-            "COLOR:",
+            color_label,
             Color::from_rgba8(148, 163, 184, 220),
             0.92 * ui_scale,
         );
 
         let color_items = [
-            (buttons[7], PaletteColor::Cyan, "1:Cyan"),
-            (buttons[8], PaletteColor::Emerald, "2:Emerald"),
-            (buttons[9], PaletteColor::Coral, "3:Coral"),
-            (buttons[10], PaletteColor::Amber, "4:Amber"),
-            (buttons[11], PaletteColor::Violet, "5:Violet"),
+            (buttons[7], PaletteColor::Cyan),
+            (buttons[8], PaletteColor::Emerald),
+            (buttons[9], PaletteColor::Coral),
+            (buttons[10], PaletteColor::Amber),
+            (buttons[11], PaletteColor::Violet),
         ];
 
-        for (btn, col, name) in color_items {
+        for (btn, col) in color_items {
             let is_active = color == col;
             let c = col.to_color();
 
-            let (bg, border, text_col) = if is_active {
+            let (bg, border, stroke_w) = if is_active {
                 (
-                    Color::from_rgba(c.red(), c.green(), c.blue(), 0.22).unwrap_or(c),
+                    Color::from_rgba(c.red(), c.green(), c.blue(), 0.25).unwrap_or(c),
                     c,
-                    Color::from_rgba8(255, 255, 255, 255),
+                    1.6 * ui_scale,
                 )
             } else {
                 (
                     Color::from_rgba8(255, 255, 255, 10),
                     Color::from_rgba8(255, 255, 255, 28),
-                    Color::from_rgba8(203, 213, 225, 200),
+                    1.0 * ui_scale,
                 )
             };
 
-            Self::draw_button_pill(
-                pixmap,
-                &btn,
-                4.0 * ui_scale,
-                bg,
-                border,
-                if is_active {
-                    1.6 * ui_scale
-                } else {
-                    1.0 * ui_scale
-                },
-            );
+            Self::draw_button_pill(pixmap, &btn, 5.0 * ui_scale, bg, border, stroke_w);
 
-            // Draw circular swatch dot inside pill
-            let swatch_x = btn.x + 9.0 * ui_scale;
-            let swatch_y = btn.y + btn.height / 2.0;
-            let swatch_r = 4.0 * ui_scale;
-            let mut swatch_paint = Paint::default();
-            swatch_paint.set_color(c);
-            swatch_paint.anti_alias = true;
+            // Draw vivid circular color chip inside
+            let chip_cx = btn.x + btn.width / 2.0;
+            let chip_cy = btn.y + btn.height / 2.0;
+            let chip_r = if is_active {
+                6.5 * ui_scale
+            } else {
+                5.5 * ui_scale
+            };
 
-            let mut swatch_pb = PathBuilder::new();
-            swatch_pb.push_circle(swatch_x, swatch_y, swatch_r);
-            if let Some(swatch_path) = swatch_pb.finish() {
+            let mut chip_paint = Paint::default();
+            chip_paint.set_color(c);
+            chip_paint.anti_alias = true;
+
+            let mut chip_pb = PathBuilder::new();
+            chip_pb.push_circle(chip_cx, chip_cy, chip_r);
+            if let Some(chip_path) = chip_pb.finish() {
                 pixmap.fill_path(
-                    &swatch_path,
-                    &swatch_paint,
+                    &chip_path,
+                    &chip_paint,
                     FillRule::Winding,
                     Transform::identity(),
                     None,
                 );
             }
 
-            // Draw color label
-            let font_scale = 0.82 * ui_scale;
-            let (_, text_h) = BitmapFont::measure_text(name, font_scale);
-            let text_y = btn.y + (btn.height - text_h) / 2.0;
-            BitmapFont::draw_text(
-                pixmap,
-                btn.x + 18.0 * ui_scale,
-                text_y,
-                name,
-                text_col,
-                font_scale,
-            );
+            // If active, draw a crisp white dot in center for clear focus indication
+            if is_active {
+                let mut dot_paint = Paint::default();
+                dot_paint.set_color(Color::from_rgba8(255, 255, 255, 240));
+                dot_paint.anti_alias = true;
+                let mut dot_pb = PathBuilder::new();
+                dot_pb.push_circle(chip_cx, chip_cy, 2.0 * ui_scale);
+                if let Some(dot_path) = dot_pb.finish() {
+                    pixmap.fill_path(
+                        &dot_path,
+                        &dot_paint,
+                        FillRule::Winding,
+                        Transform::identity(),
+                        None,
+                    );
+                }
+            }
         }
+
+        // Color keys hint
+        BitmapFont::draw_text(
+            pixmap,
+            card_x + 236.0 * ui_scale,
+            card_y + 85.0 * ui_scale,
+            "[1-5]",
+            Color::from_rgba8(100, 116, 139, 200),
+            0.82 * ui_scale,
+        );
+
+        // Language toggle button [EN/中]
+        let lang_btn = buttons[12];
+        let lang_label = language.lang_btn_label();
+        Self::draw_button_pill(
+            pixmap,
+            &lang_btn,
+            4.0 * ui_scale,
+            Color::from_rgba8(56, 189, 248, 25),
+            Color::from_rgba8(56, 189, 248, 90),
+            1.0 * ui_scale,
+        );
+        Self::draw_centered_text(
+            pixmap,
+            &lang_btn,
+            lang_label,
+            Color::from_rgba8(186, 230, 253, 240),
+            0.84 * ui_scale,
+        );
     }
 
     /// Helper to render a rounded rectangle button pill.

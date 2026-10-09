@@ -26,6 +26,7 @@ The project strictly follows the **Single Responsibility Principle (SRP)** with 
 src/
 ├── app/                  # [Coordinator & State Machine] Application coordinator and state machine
 │   ├── mod.rs            # DrawApp (implements winit::application::ApplicationHandler)
+│   ├── i18n.rs           # AppLanguage localization system (English & Traditional Chinese)
 │   └── state.rs          # AppMode, DrawingTool, DragState, PaletteColor definitions
 ├── controller/           # [Canvas Controller] High-level canvas history and undo stack
 │   ├── mod.rs
@@ -41,7 +42,7 @@ src/
 │   └── macos.rs          # MacosPlatformController (encapsulates all unsafe Objective-C pointers)
 ├── render/               # [Rasterization & UI] Pixel rasterization and HUD rendering
 │   ├── mod.rs
-│   ├── font.rs           # Zero-dependency 8x8 ASCII bitmap font engine
+│   ├── font.rs           # Dynamic macOS CJK system font rasterizer (fontdue) with bitmap fallback
 │   ├── hud.rs            # Glassmorphic floating HUD rasterizer
 │   └── renderer.rs       # CanvasRenderer (tiny-skia Pixmap memory and buffer management)
 ├── lib.rs                # Library crate root and public exports

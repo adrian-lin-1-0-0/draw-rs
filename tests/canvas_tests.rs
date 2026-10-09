@@ -1,7 +1,10 @@
 use draw_rs::{
     ArrowShape, BitmapFont, CanvasController, CircleShape, Drawable, HudHitTarget, HudOverlay,
-    Point2D, StrokeShape,
-    app::state::{AppMode, DrawingTool, PaletteColor},
+    HudRenderParams, Point2D, StrokeShape,
+    app::{
+        AppLanguage,
+        state::{AppMode, DrawingTool, PaletteColor},
+    },
 };
 use tiny_skia::{Color, Pixmap};
 
@@ -225,6 +228,20 @@ fn test_font_rendering() {
 
     let (w, h) = BitmapFont::measure_text("ABC", 1.0);
     assert!(w > 0.0 && h > 0.0);
+
+    // Test macOS font loading with fontdue
+    let font_bytes = std::fs::read("/System/Library/Fonts/Hiragino Sans GB.ttc")
+        .or_else(|_| std::fs::read("/System/Library/Fonts/STHeiti Light.ttc"))
+        .or_else(|_| std::fs::read("/System/Library/Fonts/STHeiti Medium.ttc"));
+
+    if let Ok(bytes) = font_bytes {
+        let font = fontdue::Font::from_bytes(bytes, fontdue::FontSettings::default());
+        assert!(font.is_ok());
+        let font = font.unwrap();
+        let (metrics, bitmap) = font.rasterize('畫', 16.0);
+        assert!(metrics.width > 0 && metrics.height > 0);
+        assert!(!bitmap.is_empty());
+    }
 }
 
 #[test]
@@ -241,7 +258,7 @@ fn test_hud_menu_hit_testing() {
     let hud_pos = Point2D::new(50.0, 50.0);
     let scale = 1.0;
     let buttons = HudOverlay::get_buttons(hud_pos, scale);
-    assert_eq!(buttons.len(), 12);
+    assert_eq!(buttons.len(), 13);
 
     // Test hitting each button at its center
     for btn in &buttons {
@@ -269,6 +286,7 @@ fn test_hud_menu_hit_testing() {
         buttons[11].target,
         HudHitTarget::Color(PaletteColor::Violet)
     );
+    assert_eq!(buttons[12].target, HudHitTarget::ToggleLanguage);
 
     // Test blank card header area -> DragHeader
     let drag_point = Point2D::new(hud_pos.x + 10.0, hud_pos.y + 10.0);
@@ -284,17 +302,48 @@ fn test_hud_menu_hit_testing() {
         HudHitTarget::None
     );
 
-    // Test rendering HUD onto pixmap
-    let mut pixmap = Pixmap::new(600, 300).expect("failed to create pixmap");
-    HudOverlay::render(
-        &mut pixmap,
-        AppMode::Drawing,
-        DrawingTool::Pen,
-        PaletteColor::Cyan,
-        5,
-        1.0,
-        hud_pos,
-    );
-    let has_pixels = pixmap.pixels().iter().any(|p| p.alpha() > 0);
-    assert!(has_pixels);
+    // Test rendering HUD onto pixmap with both English and Traditional Chinese
+    let mut pixmap_en = Pixmap::new(600, 300).expect("failed to create pixmap");
+    let params_en = HudRenderParams {
+        mode: AppMode::Drawing,
+        tool: DrawingTool::Pen,
+        color: PaletteColor::Cyan,
+        shape_count: 5,
+        language: AppLanguage::En,
+    };
+    HudOverlay::render(&mut pixmap_en, &params_en, 1.0, hud_pos);
+    assert!(pixmap_en.pixels().iter().any(|p| p.alpha() > 0));
+
+    let mut pixmap_zh = Pixmap::new(600, 300).expect("failed to create pixmap");
+    let params_zh = HudRenderParams {
+        mode: AppMode::Drawing,
+        tool: DrawingTool::Eraser,
+        color: PaletteColor::Violet,
+        shape_count: 3,
+        language: AppLanguage::ZhTw,
+    };
+    HudOverlay::render(&mut pixmap_zh, &params_zh, 1.0, hud_pos);
+    assert!(pixmap_zh.pixels().iter().any(|p| p.alpha() > 0));
+}
+
+#[test]
+fn test_app_language_i18n() {
+    let mut lang = AppLanguage::En;
+    assert_eq!(lang.lang_btn_label(), "EN/中[L]");
+    assert_eq!(lang.mode_title(AppMode::Drawing), "DRAWING");
+    assert_eq!(lang.tool_name(DrawingTool::Eraser), "Eraser[E]");
+    assert_eq!(lang.action_undo(), "Undo[Z]");
+    assert_eq!(lang.action_clear(), "Clear[C]");
+
+    lang = lang.toggle();
+    assert_eq!(lang, AppLanguage::ZhTw);
+    assert_eq!(lang.lang_btn_label(), "中/EN[L]");
+    assert_eq!(lang.mode_title(AppMode::Drawing), "繪圖模式");
+    assert_eq!(lang.tool_name(DrawingTool::Eraser), "橡皮擦[E]");
+    assert_eq!(lang.action_undo(), "復原[Z]");
+    assert_eq!(lang.action_clear(), "清除[C]");
+    assert_eq!(lang.shape_count(5), "(5 個圖形)");
+
+    lang = lang.toggle();
+    assert_eq!(lang, AppLanguage::En);
 }
