@@ -16,10 +16,6 @@ Tailored specifically for **LeetCode problem solving**, **system design intervie
 
 <br />
 
-<img src="./assets/demo.png" alt="draw-rs macOS Demo Screenshot" width="850" />
-
-<br /><br />
-
 [Demo](#-demo-preview) •
 [Features](#-core-features) •
 [Keybindings](#-keyboard-shortcuts--controls) •
