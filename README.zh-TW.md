@@ -16,10 +16,6 @@
 
 <br />
 
-<img src="./assets/demo.png" alt="draw-rs macOS 實機展示截圖" width="850" />
-
-<br /><br />
-
 [實機展示](#-實機展示-demo-preview) •
 [功能亮點](#-核心功能特點) •
 [快捷鍵操作](#-快捷鍵與操作指南) •
