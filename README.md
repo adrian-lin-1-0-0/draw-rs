@@ -162,14 +162,24 @@ src/
 
 ---
 
-## 🚀 Quick Start
+## 🚀 Installation & Quick Start
 
-### Prerequisites
-- **Operating System**: macOS 13.0+ (Ventura, Sonoma, Sequoia)
-- **Architecture**: Apple Silicon (M1/M2/M3/M4) or Intel (x86_64)
-- **Compiler**: Rust 1.85+ (Edition 2024)
+### Installation
 
-### Build & Run
+#### Option 1: One-Line Install via Cargo (Recommended)
+
+Install directly from GitHub into your `~/.cargo/bin`:
+
+```bash
+cargo install --git https://github.com/adrian-lin-1-0-0/draw-rs.git
+```
+
+Once installed, launch `draw-rs` from anywhere in your terminal:
+```bash
+draw-rs
+```
+
+#### Option 2: Build from Source
 
 ```bash
 # 1. Clone repository
@@ -186,6 +196,47 @@ cargo run --release
 The compiled standalone binary is located at:
 ```bash
 ./target/release/draw-rs
+```
+
+---
+
+## ⚡ Global Shortcuts & Quick Launch Setup
+
+### 1. Function Keys (<kbd>F1</kbd> / <kbd>fn</kbd> + <kbd>F1</kbd>) on MacBooks
+
+On Apple keyboards and MacBook built-in keyboards, the top row keys default to hardware media controls (Brightness, Volume, Mission Control):
+- **Default Behavior**: Press <kbd>fn</kbd> + <kbd>F1</kbd> to toggle between **Drawing Mode** and **Pass-Thru Mode**.
+- **Use Standard F1-F12 Keys (Recommended)**:
+  1. Open **System Settings** ➔ **Keyboard** ➔ **Keyboard Shortcuts** ➔ **Function Keys**.
+  2. Turn on **"Use F1, F2, etc. keys as standard function keys"**.
+  3. Now pressing <kbd>F1</kbd> directly toggles modes without needing the <kbd>fn</kbd> key!
+
+### 2. Set Up a Global Shortcut to Launch `draw-rs`
+
+You can bind a system-wide hotkey (such as <kbd>⌥</kbd> + <kbd>D</kbd> or <kbd>⌘</kbd> + <kbd>⇧</kbd> + <kbd>D</kbd>) to launch `draw-rs` instantly anytime from anywhere:
+
+#### Method A: Raycast / Alfred (Recommended)
+- **Raycast**:
+  1. Open **Raycast Settings** ➔ **Extensions** ➔ **Script Commands**.
+  2. Create a script or quicklink with command `~/.cargo/bin/draw-rs`.
+  3. Assign a Hotkey (e.g., <kbd>⌥</kbd> + <kbd>D</kbd>).
+- **Alfred**:
+  1. Open **Alfred Preferences** ➔ **Workflows** ➔ Add a new blank Workflow.
+  2. Add **Hotkey** trigger ➔ Connect to **Run Script** (`~/.cargo/bin/draw-rs`).
+
+#### Method B: macOS Native Shortcuts App (捷徑)
+1. Open macOS built-in **Shortcuts** app and click `+` (New Shortcut).
+2. Add action: **Run Shell Script**.
+3. Input the script path:
+   ```bash
+   ~/.cargo/bin/draw-rs &
+   ```
+4. In Shortcut Details (right sidebar), enable **Use as Quick Action** and click **Add Keyboard Shortcut** (e.g. <kbd>⌘</kbd> + <kbd>⇧</kbd> + <kbd>D</kbd>).
+
+#### Method C: `skhd` (For Tiling WM Users)
+Add the following line to `~/.config/skhd/skhdrc`:
+```text
+cmd + shift - d : ~/.cargo/bin/draw-rs
 ```
 
 ---

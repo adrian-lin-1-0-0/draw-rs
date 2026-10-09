@@ -161,14 +161,24 @@ src/
 
 ---
 
-## 🚀 快速啟動
+## 🚀 安裝與快速啟動
 
-### 系統需求
-- **作業系統**：macOS 13.0+ (Ventura, Sonoma, Sequoia)
-- **架構**：Apple Silicon (M1/M2/M3/M4) 或 Intel (x86_64)
-- **編譯環境**：Rust 1.85+ (Edition 2024)
+### 安裝方式
 
-### 編譯與執行
+#### 方式一：透過 Cargo 一鍵安裝（推薦）
+
+直接從 GitHub 安裝二進位執行檔至系統的 `~/.cargo/bin`：
+
+```bash
+cargo install --git https://github.com/adrian-lin-1-0-0/draw-rs.git
+```
+
+安裝完成後，在任何終端機視窗輸入指令即可立刻啟動：
+```bash
+draw-rs
+```
+
+#### 方式二：從原始碼編譯執行
 
 ```bash
 # 1. 複製專案
@@ -185,6 +195,47 @@ cargo run --release
 產生的獨立可執行二進位檔位於：
 ```bash
 ./target/release/draw-rs
+```
+
+---
+
+## ⚡ 全域快捷鍵與快速啟動設定指南
+
+### 1. MacBook 頂部功能鍵 (<kbd>F1</kbd> / <kbd>fn</kbd> + <kbd>F1</kbd>) 設定
+
+在 Apple 鍵盤或 MacBook 內建鍵盤上，最上排按鍵預設為硬體多媒體控制（螢幕亮度、音量、指揮中心）：
+- **預設按法**：請按下 <kbd>fn</kbd> + <kbd>F1</kbd> 切換「繪圖模式」與「滑鼠穿透模式」。
+- **設為標準功能鍵（推薦）**：
+  1. 打開 macOS **系統設定 (System Settings)** ➔ **鍵盤 (Keyboard)** ➔ **鍵盤快速鍵 (Keyboard Shortcuts)** ➔ **功能鍵 (Function Keys)**。
+  2. 開啟 **「將 F1、F2 等按鍵用作標準功能鍵」**。
+  3. 設定後，即可直接單鍵按下 <kbd>F1</kbd> 切換模式，不需再長按 <kbd>fn</kbd> 鍵！
+
+### 2. 設定全域快捷鍵一鍵喚起 `draw-rs`
+
+推薦設定全域熱鍵（例如 <kbd>⌥</kbd> + <kbd>D</kbd> 或 <kbd>⌘</kbd> + <kbd>⇧</kbd> + <kbd>D</kbd>），讓你在刷 LeetCode 或寫程式時，隨時一鍵呼叫塗鴉板：
+
+#### 推薦方式 A：使用 Raycast / Alfred（工程師最推薦）
+- **Raycast**：
+  1. 打開 **Raycast Settings** ➔ **Extensions** ➔ **Script Commands**。
+  2. 新增一個指向 `~/.cargo/bin/draw-rs` 的腳本或 Quicklink。
+  3. 為其指派熱鍵（例如 <kbd>⌥</kbd> + <kbd>D</kbd>）。
+- **Alfred**：
+  1. 打開 **Alfred Preferences** ➔ **Workflows** ➔ 新增空白 Workflow。
+  2. 建立 **Hotkey** 觸發器 ➔ 連接至 **Run Script** (`~/.cargo/bin/draw-rs`)。
+
+#### 推薦方式 B：macOS 原生「捷徑」App (Shortcuts)
+1. 打開 macOS 內建的 **捷徑 (Shortcuts)** App，點擊 `+` 新增捷徑。
+2. 加入動作：**執行 Shell 工序指令 (Run Shell Script)**。
+3. 填入指令：
+   ```bash
+   ~/.cargo/bin/draw-rs &
+   ```
+4. 點擊右側面板的「捷徑詳細資訊」，勾選 **「用作快速動作」**，並點擊 **「加入鍵盤快速鍵」**（例如 <kbd>⌘</kbd> + <kbd>⇧</kbd> + <kbd>D</kbd>）。
+
+#### 推薦方式 C：`skhd`（平鋪式視窗管理器使用者）
+在 `~/.config/skhd/skhdrc` 加入以下設定：
+```text
+cmd + shift - d : ~/.cargo/bin/draw-rs
 ```
 
 ---
