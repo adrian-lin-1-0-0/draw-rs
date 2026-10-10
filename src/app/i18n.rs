@@ -44,13 +44,75 @@ pub struct LabelStrings {
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct ToolStrings {
+    #[serde(default = "default_hand")]
+    pub hand: String,
+    #[serde(default = "default_select")]
+    pub select: String,
+    #[serde(default = "default_rectangle")]
+    pub rectangle: String,
     pub pen: String,
+    #[serde(default = "default_diamond")]
+    pub diamond: String,
     pub circle: String,
     pub arrow: String,
+    #[serde(default = "default_line")]
+    pub line: String,
+    #[serde(default = "default_text")]
+    pub text: String,
     pub eraser: String,
 }
 
-/// Strongly-typed locale strings loaded from compile-time embedded JSON files.
+fn default_hand() -> String {
+    "Hand[H]".to_string()
+}
+
+fn default_select() -> String {
+    "Select[V]".to_string()
+}
+
+fn default_rectangle() -> String {
+    "Rect[R]".to_string()
+}
+
+fn default_diamond() -> String {
+    "Diamond[D]".to_string()
+}
+
+fn default_line() -> String {
+    "Line[L]".to_string()
+}
+
+fn default_text() -> String {
+    "Text[T]".to_string()
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct PropertiesStrings {
+    pub title: String,
+    pub title_default: String,
+    pub title_selected: String,
+    pub stroke_color: String,
+    pub background_fill: String,
+    pub stroke_width: String,
+    pub width_thin: String,
+    pub width_med: String,
+    pub width_thick: String,
+    pub stroke_style: String,
+    pub style_solid: String,
+    pub style_dashed: String,
+    pub style_dotted: String,
+    pub layers: String,
+    pub layer_front: String,
+    pub layer_forward: String,
+    pub layer_backward: String,
+    pub layer_back: String,
+    pub actions: String,
+    pub action_duplicate: String,
+    pub action_delete: String,
+    pub btn_properties: String,
+}
+
+/// Strongly-typed locale strings loaded from compile-time embedded YAML files.
 #[derive(Debug, Clone, Deserialize)]
 pub struct LocaleStrings {
     pub display_name: String,
@@ -60,6 +122,7 @@ pub struct LocaleStrings {
     pub hints: HintStrings,
     pub labels: LabelStrings,
     pub tools: ToolStrings,
+    pub properties: PropertiesStrings,
 }
 
 /// Application language for UI localization.
@@ -143,9 +206,15 @@ impl AppLanguage {
     /// Localized tool button label.
     pub fn tool_name(&self, tool: DrawingTool) -> &str {
         match tool {
-            DrawingTool::Pen => &self.strings().tools.pen,
+            DrawingTool::Hand => &self.strings().tools.hand,
+            DrawingTool::Selection => &self.strings().tools.select,
+            DrawingTool::Rectangle => &self.strings().tools.rectangle,
+            DrawingTool::Diamond => &self.strings().tools.diamond,
             DrawingTool::Circle => &self.strings().tools.circle,
             DrawingTool::Arrow => &self.strings().tools.arrow,
+            DrawingTool::Line => &self.strings().tools.line,
+            DrawingTool::Pen => &self.strings().tools.pen,
+            DrawingTool::Text => &self.strings().tools.text,
             DrawingTool::Eraser => &self.strings().tools.eraser,
         }
     }
@@ -168,5 +237,23 @@ impl AppLanguage {
     /// Localized color keys shortcut hint.
     pub fn color_keys_hint(&self) -> &str {
         &self.strings().hints.color_keys
+    }
+
+    /// Label display for HUD Properties trigger button.
+    pub fn properties_button_label(&self, is_open: bool) -> String {
+        let arrow = if is_open { "▲" } else { "▼" };
+        format!("{} {arrow}", self.strings().properties.btn_properties)
+    }
+
+    /// Header text for Properties panel.
+    pub fn properties_header(&self, selected_count: usize) -> String {
+        if selected_count > 0 {
+            self.strings()
+                .properties
+                .title_selected
+                .replace("{count}", &selected_count.to_string())
+        } else {
+            self.strings().properties.title_default.clone()
+        }
     }
 }

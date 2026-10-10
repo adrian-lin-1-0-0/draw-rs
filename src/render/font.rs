@@ -8,11 +8,18 @@ fn get_system_font() -> Option<&'static fontdue::Font> {
     SYSTEM_FONT
         .get_or_init(|| {
             let candidates = [
+                // macOS
                 "/System/Library/Fonts/Hiragino Sans GB.ttc",
                 "/System/Library/Fonts/STHeiti Light.ttc",
                 "/System/Library/Fonts/STHeiti Medium.ttc",
                 "/System/Library/Fonts/Supplemental/Songti.ttc",
                 "/System/Library/Fonts/Helvetica.ttc",
+                // Linux / Ubuntu
+                "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+                "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+                "/usr/share/fonts/truetype/freefont/FreeSans.ttf",
+                "/usr/share/fonts/truetype/ubuntu/Ubuntu-R.ttf",
+                "/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf",
             ];
             for path in candidates {
                 if let Ok(bytes) = std::fs::read(path)

@@ -209,6 +209,16 @@ fn test_state_transitions() {
     assert_eq!(tool, DrawingTool::Eraser);
     tool = tool.cycle();
     assert_eq!(tool, DrawingTool::Pen);
+
+    let mut select_tool = DrawingTool::Selection;
+    select_tool = select_tool.cycle();
+    assert_eq!(select_tool, DrawingTool::Hand);
+    select_tool = select_tool.cycle();
+    assert_eq!(select_tool, DrawingTool::Rectangle);
+    select_tool = select_tool.cycle();
+    assert_eq!(select_tool, DrawingTool::Diamond);
+    assert_eq!(DrawingTool::Hand.display_name(), "Hand [H]");
+    assert_eq!(DrawingTool::Diamond.display_name(), "Diamond [D]");
 }
 
 #[test]
@@ -260,7 +270,7 @@ fn test_hud_menu_hit_testing() {
     let hud_pos = Point2D::new(50.0, 50.0);
     let scale = 1.0;
     let buttons = HudOverlay::get_buttons(hud_pos, scale);
-    assert_eq!(buttons.len(), 13);
+    assert_eq!(buttons.len(), 20);
 
     // Test hitting each button at its center (when dropdown is closed)
     for btn in &buttons {
@@ -271,24 +281,49 @@ fn test_hud_menu_hit_testing() {
 
     // Specific button target tests
     assert_eq!(buttons[0].target, HudHitTarget::ToggleMode);
-    assert_eq!(buttons[1].target, HudHitTarget::Tool(DrawingTool::Pen));
-    assert_eq!(buttons[2].target, HudHitTarget::Tool(DrawingTool::Circle));
-    assert_eq!(buttons[3].target, HudHitTarget::Tool(DrawingTool::Arrow));
-    assert_eq!(buttons[4].target, HudHitTarget::Tool(DrawingTool::Eraser));
-    assert_eq!(buttons[5].target, HudHitTarget::Undo);
-    assert_eq!(buttons[6].target, HudHitTarget::Clear);
-    assert_eq!(buttons[7].target, HudHitTarget::Color(PaletteColor::Cyan));
+    assert_eq!(buttons[1].target, HudHitTarget::Tool(DrawingTool::Hand));
     assert_eq!(
-        buttons[8].target,
+        buttons[2].target,
+        HudHitTarget::Tool(DrawingTool::Selection)
+    );
+    assert_eq!(
+        buttons[3].target,
+        HudHitTarget::Tool(DrawingTool::Rectangle)
+    );
+    assert_eq!(buttons[4].target, HudHitTarget::Tool(DrawingTool::Diamond));
+    assert_eq!(buttons[5].target, HudHitTarget::Tool(DrawingTool::Circle));
+    assert_eq!(buttons[6].target, HudHitTarget::Tool(DrawingTool::Arrow));
+    assert_eq!(buttons[7].target, HudHitTarget::Tool(DrawingTool::Line));
+    assert_eq!(buttons[8].target, HudHitTarget::Tool(DrawingTool::Pen));
+    assert_eq!(buttons[9].target, HudHitTarget::Tool(DrawingTool::Text));
+    assert_eq!(buttons[10].target, HudHitTarget::Tool(DrawingTool::Eraser));
+    assert_eq!(buttons[11].target, HudHitTarget::Undo);
+    assert_eq!(buttons[12].target, HudHitTarget::Clear);
+    assert_eq!(buttons[13].target, HudHitTarget::Color(PaletteColor::Cyan));
+    assert_eq!(
+        buttons[14].target,
         HudHitTarget::Color(PaletteColor::Emerald)
     );
-    assert_eq!(buttons[9].target, HudHitTarget::Color(PaletteColor::Coral));
-    assert_eq!(buttons[10].target, HudHitTarget::Color(PaletteColor::Amber));
+    assert_eq!(buttons[15].target, HudHitTarget::Color(PaletteColor::Coral));
+    assert_eq!(buttons[16].target, HudHitTarget::Color(PaletteColor::Amber));
     assert_eq!(
-        buttons[11].target,
+        buttons[17].target,
         HudHitTarget::Color(PaletteColor::Violet)
     );
-    assert_eq!(buttons[12].target, HudHitTarget::ToggleLanguageMenu);
+    assert_eq!(buttons[18].target, HudHitTarget::ToggleProperties);
+    assert_eq!(buttons[19].target, HudHitTarget::ToggleLanguageMenu);
+
+    // Test properties toggle button on Row 3
+    let prop_btn = HudOverlay::get_properties_button(hud_pos, scale);
+    assert_eq!(prop_btn.target, HudHitTarget::ToggleProperties);
+    let prop_center = Point2D::new(
+        prop_btn.x + prop_btn.width / 2.0,
+        prop_btn.y + prop_btn.height / 2.0,
+    );
+    assert_eq!(
+        HudOverlay::hit_test(hud_pos, prop_center, scale, false),
+        HudHitTarget::ToggleProperties
+    );
 
     // Test dropdown popover items when menu is open
     let dropdown_items = HudOverlay::get_lang_dropdown_items(hud_pos, scale);
@@ -341,6 +376,7 @@ fn test_hud_menu_hit_testing() {
         shape_count: 5,
         language: AppLanguage::En,
         is_lang_menu_open: false,
+        is_properties_open: false,
     };
     HudOverlay::render(&mut pixmap_en, &params_en, 1.0, hud_pos);
     assert!(pixmap_en.pixels().iter().any(|p| p.alpha() > 0));
@@ -353,6 +389,7 @@ fn test_hud_menu_hit_testing() {
         shape_count: 3,
         language: AppLanguage::ZhTw,
         is_lang_menu_open: true,
+        is_properties_open: true,
     };
     HudOverlay::render(&mut pixmap_zh, &params_zh, 1.0, hud_pos);
     assert!(pixmap_zh.pixels().iter().any(|p| p.alpha() > 0));
@@ -363,6 +400,10 @@ fn test_app_language_i18n() {
     let mut lang = AppLanguage::En;
     assert_eq!(lang.dropdown_label(false), "English ▼");
     assert_eq!(lang.dropdown_label(true), "English ▲");
+    assert_eq!(lang.properties_button_label(false), "Properties ▼");
+    assert_eq!(lang.properties_button_label(true), "Properties ▲");
+    assert_eq!(lang.properties_header(0), "PROPERTIES (Default)");
+    assert_eq!(lang.properties_header(3), "PROPERTIES (3)");
     assert_eq!(
         AppLanguage::dropdown_item_label(AppLanguage::En, true),
         "✓ English"
@@ -372,6 +413,15 @@ fn test_app_language_i18n() {
         "  繁體中文"
     );
     assert_eq!(lang.mode_title(AppMode::Drawing), "DRAWING");
+    assert_eq!(lang.tool_name(DrawingTool::Hand), "Hand[H]");
+    assert_eq!(lang.tool_name(DrawingTool::Selection), "Select[V]");
+    assert_eq!(lang.tool_name(DrawingTool::Rectangle), "Rect[R]");
+    assert_eq!(lang.tool_name(DrawingTool::Diamond), "Diamond[D]");
+    assert_eq!(lang.tool_name(DrawingTool::Circle), "Circle");
+    assert_eq!(lang.tool_name(DrawingTool::Arrow), "Arrow");
+    assert_eq!(lang.tool_name(DrawingTool::Line), "Line[L]");
+    assert_eq!(lang.tool_name(DrawingTool::Pen), "Pen[P]");
+    assert_eq!(lang.tool_name(DrawingTool::Text), "Text[T]");
     assert_eq!(lang.tool_name(DrawingTool::Eraser), "Eraser[E]");
     assert_eq!(lang.action_undo(), "Undo[Z]");
     assert_eq!(lang.action_clear(), "Clear[C]");
@@ -380,7 +430,20 @@ fn test_app_language_i18n() {
     assert_eq!(lang, AppLanguage::ZhTw);
     assert_eq!(lang.dropdown_label(false), "繁體中文 ▼");
     assert_eq!(lang.dropdown_label(true), "繁體中文 ▲");
+    assert_eq!(lang.properties_button_label(false), "屬性 ▼");
+    assert_eq!(lang.properties_button_label(true), "屬性 ▲");
+    assert_eq!(lang.properties_header(0), "屬性 (預設)");
+    assert_eq!(lang.properties_header(2), "屬性 (2)");
     assert_eq!(lang.mode_title(AppMode::Drawing), "繪圖模式");
+    assert_eq!(lang.tool_name(DrawingTool::Hand), "抓手[H]");
+    assert_eq!(lang.tool_name(DrawingTool::Selection), "選取[V]");
+    assert_eq!(lang.tool_name(DrawingTool::Rectangle), "矩形[R]");
+    assert_eq!(lang.tool_name(DrawingTool::Diamond), "菱形[D]");
+    assert_eq!(lang.tool_name(DrawingTool::Circle), "節點");
+    assert_eq!(lang.tool_name(DrawingTool::Arrow), "箭頭");
+    assert_eq!(lang.tool_name(DrawingTool::Line), "直線[L]");
+    assert_eq!(lang.tool_name(DrawingTool::Pen), "畫筆[P]");
+    assert_eq!(lang.tool_name(DrawingTool::Text), "文字[T]");
     assert_eq!(lang.tool_name(DrawingTool::Eraser), "橡皮擦[E]");
     assert_eq!(lang.action_undo(), "復原[Z]");
     assert_eq!(lang.action_clear(), "清除[C]");

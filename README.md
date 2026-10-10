@@ -40,7 +40,7 @@ Tailored specifically for **LeetCode problem solving**, **system design intervie
 
 ## 💡 Why draw-rs?
 
-When solving algorithmic problems on LeetCode, Codeforces, or during technical whiteboard interviews, switching between your browser, IDE, and external drawing tools (like Excalidraw or physical paper) breaks your train of thought.
+When solving algorithmic problems on LeetCode, Codeforces, or during technical whiteboard interviews, switching between your browser, IDE, and external whiteboard tools (or physical paper) breaks your train of thought.
 
 `draw-rs` suspends a **100% natively transparent vector canvas** directly on top of your macOS desktop:
 - 🌲 **Annotate Trees directly over problem descriptions**: Sketch Binary Search Trees, Tries, and AVL trees right on the webpage.

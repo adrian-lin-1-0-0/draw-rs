@@ -29,7 +29,38 @@ labels:
 
 # Algorithm diagramming tools
 tools:
-  pen: "Pen[P]"
+  hand: "Hand[H]"
+  select: "Select[V]"
+  rectangle: "Rect[R]"
+  diamond: "Diamond[D]"
   circle: Circle
   arrow: Arrow
+  line: "Line[L]"
+  pen: "Pen[P]"
+  text: "Text[T]"
   eraser: "Eraser[E]"
+
+# Shape & Style Inspector
+properties:
+  title: "PROPERTIES"
+  title_default: "PROPERTIES (Default)"
+  title_selected: "PROPERTIES ({count})"
+  stroke_color: "Stroke Color"
+  background_fill: "Background Fill"
+  stroke_width: "Stroke Width"
+  width_thin: "Thin"
+  width_med: "Med"
+  width_thick: "Thick"
+  stroke_style: "Stroke Style"
+  style_solid: "Solid"
+  style_dashed: "Dashed"
+  style_dotted: "Dotted"
+  layers: "Layers"
+  layer_front: "To Front"
+  layer_forward: "Forward"
+  layer_backward: "Backward"
+  layer_back: "To Back"
+  actions: "Quick Actions"
+  action_duplicate: "Duplicate [Cmd+D]"
+  action_delete: "Delete [Del]"
+  btn_properties: "Properties"

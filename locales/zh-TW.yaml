@@ -29,7 +29,38 @@ labels:
 
 # 演算法圖形工具
 tools:
-  pen: "畫筆[P]"
+  hand: "抓手[H]"
+  select: "選取[V]"
+  rectangle: "矩形[R]"
+  diamond: "菱形[D]"
   circle: 節點
   arrow: 箭頭
+  line: "直線[L]"
+  pen: "畫筆[P]"
+  text: "文字[T]"
   eraser: "橡皮擦[E]"
+
+# 圖元與樣式屬性面板
+properties:
+  title: "屬性面板"
+  title_default: "屬性 (預設)"
+  title_selected: "屬性 ({count})"
+  stroke_color: "筆畫顏色"
+  background_fill: "背景填色"
+  stroke_width: "筆畫粗細"
+  width_thin: "細"
+  width_med: "中"
+  width_thick: "粗"
+  stroke_style: "筆畫樣式"
+  style_solid: "實線"
+  style_dashed: "虛線"
+  style_dotted: "點線"
+  layers: "圖層順序"
+  layer_front: "置頂"
+  layer_forward: "上移"
+  layer_backward: "下移"
+  layer_back: "置底"
+  actions: "快捷操作"
+  action_duplicate: "複製 [Cmd+D]"
+  action_delete: "刪除 [Del]"
+  btn_properties: "屬性"
