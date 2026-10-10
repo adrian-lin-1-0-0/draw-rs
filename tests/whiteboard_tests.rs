@@ -296,6 +296,37 @@ fn test_full_undo_redo_and_duplicate_and_delete() {
 
     // 8. Undo bring to front
     assert!(canvas.undo());
+
+    // 9. Multi-selection layer movement tests (A=0, B=1, C=2)
+    // Add a 4th shape so we have 4 shapes: A, B, C, D
+    let r4 = RectangleShape::new(
+        Point2D::new(150.0, 150.0),
+        30.0,
+        30.0,
+        Color::from_rgba8(0, 0, 255, 255),
+        None,
+        2.0,
+    );
+    canvas.push_shape(Box::new(r4));
+    assert_eq!(canvas.shape_count(), 4);
+
+    // Multi-selection bring_forward: move adjacent shapes [1, 2] (B, C) forward as a cohesive block
+    let fwd_indices = canvas.bring_forward(&[1, 2]);
+    assert_eq!(fwd_indices, vec![2, 3]);
+
+    // Undo bring_forward
+    assert!(canvas.undo());
+
+    // Multi-selection send_backward: move adjacent shapes [1, 2] (B, C) backward as a cohesive block
+    let back_indices = canvas.send_backward(&[1, 2]);
+    assert_eq!(back_indices, vec![0, 1]);
+
+    // Send backward at boundary (0, 1 cannot move further back)
+    let back_boundary = canvas.send_backward(&[0, 1]);
+    assert_eq!(back_boundary, vec![0, 1]);
+
+    // Undo send_backward
+    assert!(canvas.undo());
 }
 
 #[test]

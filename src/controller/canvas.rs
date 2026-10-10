@@ -387,26 +387,34 @@ impl CanvasController {
     }
 
     /// Moves selected shapes forward by 1 layer.
+    /// Uses an O(n) boolean array scan so adjacent multi-selected shapes move forward as a cohesive block.
     pub fn bring_forward(&mut self, indices: &[usize]) -> Vec<usize> {
         if indices.is_empty() || self.shapes.len() <= 1 {
             return indices.to_vec();
         }
 
         let old_shapes = self.shapes.clone();
-        let mut sorted: Vec<usize> = indices.to_vec();
-        sorted.sort_unstable();
-
-        let mut new_indices = Vec::new();
-        // Move from right to left
-        for &idx in sorted.iter().rev() {
-            if idx + 1 < self.shapes.len() && !sorted.contains(&(idx + 1)) {
-                self.shapes.swap(idx, idx + 1);
-                new_indices.push(idx + 1);
-            } else {
-                new_indices.push(idx);
+        let n = self.shapes.len();
+        let mut selected = vec![false; n];
+        for &idx in indices {
+            if idx < n {
+                selected[idx] = true;
             }
         }
-        new_indices.reverse();
+
+        // Move rightward by scanning right-to-left
+        for i in (0..n.saturating_sub(1)).rev() {
+            if selected[i] && !selected[i + 1] {
+                self.shapes.swap(i, i + 1);
+                selected.swap(i, i + 1);
+            }
+        }
+
+        let new_indices: Vec<usize> = selected
+            .iter()
+            .enumerate()
+            .filter_map(|(i, &is_sel)| if is_sel { Some(i) } else { None })
+            .collect();
 
         self.action_history.push(CanvasAction::Reorder {
             old_shapes,
@@ -418,25 +426,34 @@ impl CanvasController {
     }
 
     /// Moves selected shapes backward by 1 layer.
+    /// Uses an O(n) boolean array scan so adjacent multi-selected shapes move backward as a cohesive block.
     pub fn send_backward(&mut self, indices: &[usize]) -> Vec<usize> {
         if indices.is_empty() || self.shapes.len() <= 1 {
             return indices.to_vec();
         }
 
         let old_shapes = self.shapes.clone();
-        let mut sorted: Vec<usize> = indices.to_vec();
-        sorted.sort_unstable();
-
-        let mut new_indices = Vec::new();
-        // Move from left to right
-        for &idx in &sorted {
-            if idx > 0 && !sorted.contains(&(idx - 1)) {
-                self.shapes.swap(idx, idx - 1);
-                new_indices.push(idx - 1);
-            } else {
-                new_indices.push(idx);
+        let n = self.shapes.len();
+        let mut selected = vec![false; n];
+        for &idx in indices {
+            if idx < n {
+                selected[idx] = true;
             }
         }
+
+        // Move leftward by scanning left-to-right
+        for i in 1..n {
+            if selected[i] && !selected[i - 1] {
+                self.shapes.swap(i, i - 1);
+                selected.swap(i, i - 1);
+            }
+        }
+
+        let new_indices: Vec<usize> = selected
+            .iter()
+            .enumerate()
+            .filter_map(|(i, &is_sel)| if is_sel { Some(i) } else { None })
+            .collect();
 
         self.action_history.push(CanvasAction::Reorder {
             old_shapes,
