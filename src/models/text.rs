@@ -9,11 +9,18 @@ fn get_text_font() -> Option<&'static fontdue::Font> {
     TEXT_SYSTEM_FONT
         .get_or_init(|| {
             let candidates = [
+                // macOS
                 "/System/Library/Fonts/Hiragino Sans GB.ttc",
                 "/System/Library/Fonts/STHeiti Light.ttc",
                 "/System/Library/Fonts/STHeiti Medium.ttc",
                 "/System/Library/Fonts/Supplemental/Songti.ttc",
                 "/System/Library/Fonts/Helvetica.ttc",
+                // Linux / Ubuntu
+                "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+                "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+                "/usr/share/fonts/truetype/freefont/FreeSans.ttf",
+                "/usr/share/fonts/truetype/ubuntu/Ubuntu-R.ttf",
+                "/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf",
             ];
             for path in candidates {
                 if let Ok(bytes) = std::fs::read(path)
@@ -89,6 +96,16 @@ impl Drawable for TextShape {
         }
 
         let Some(font) = get_text_font() else {
+            // Fallback to built-in bitmap font when TrueType fonts are unavailable
+            let scale = (self.font_size / 8.0).max(1.0);
+            crate::render::BitmapFont::draw_text(
+                pixmap,
+                self.position.x,
+                self.position.y,
+                &self.text,
+                self.color,
+                scale,
+            );
             return;
         };
 
