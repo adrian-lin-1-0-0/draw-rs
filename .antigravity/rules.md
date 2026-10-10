@@ -89,6 +89,11 @@ src/
 - The high-level coordinator (`DrawApp`) depends strictly on abstractions (`WindowPlatformController` trait and `dyn Drawable`), rather than concrete macOS AppKit implementations.
 - **All `unsafe` Objective-C pointer operations must be strictly confined within `src/platform/macos.rs`** and never leak into outer layers.
 
+### 3.5 Clean Code & Dead Code Prevention
+- **Eliminate Unused & Abandoned State**:
+  - Every allocated object, buffer, or builder (e.g., `PathBuilder`, `Paint`, temporary vectors, or intermediate geometric calculations) must have a concrete, purposeful consumer (e.g., rendered onto a pixmap, stored into collections, or returned).
+  - **Compiler Blindspot Awareness**: Rust's built-in `unused_variables` and `unused_mut` lints **do not trigger** if a variable has been passed into an `&mut self` method (such as `builder.push_circle(...)`) even if its final result is never finished, read, or drawn. Developers and AI assistants must actively audit for and eliminate abandoned builders, dummy initializers, and phantom mutations.
+
 ---
 
 ## 4. Critical Invariants (DO NOT BREAK)
@@ -148,3 +153,6 @@ Before submitting any Pull Request or committing changes, all of the following c
    cargo build --release
    ```
    The output binary `target/release/draw-rs` must compile cleanly without unexpected external dependencies.
+
+5. **Dead Code & Redundant State Audit**:
+   - Explicitly review functions (particularly renderers, handlers, and math modules) for phantom mutations, abandoned builders, or dummy initializations that evade compiler unused checks. Ensure zero dead code or unconsumed allocations exist in the codebase.
