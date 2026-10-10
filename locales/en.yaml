@@ -58,7 +58,7 @@ properties:
   layers: "Layers"
   layer_front: "To Front"
   layer_forward: "Forward"
-  layer_backward: "Backwrd"
+  layer_backward: "Backward"
   layer_back: "To Back"
   actions: "Quick Actions"
   action_duplicate: "Duplicate [Cmd+D]"
