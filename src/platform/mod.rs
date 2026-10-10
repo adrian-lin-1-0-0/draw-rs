@@ -1,6 +1,12 @@
+#[cfg(target_os = "macos")]
 pub mod macos;
-
+#[cfg(target_os = "macos")]
 pub use macos::MacosPlatformController;
+
+#[cfg(not(target_os = "macos"))]
+pub mod dummy;
+#[cfg(not(target_os = "macos"))]
+pub use dummy::DummyPlatformController;
 
 use std::fmt;
 use winit::window::Window;

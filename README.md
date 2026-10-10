@@ -7,6 +7,7 @@
 </p>
 
 [![Rust](https://img.shields.io/badge/Rust-2024_Edition-orange?logo=rust&logoColor=white)](https://www.rust-lang.org/)
+[![CI](https://github.com/adrian-lin-1-0-0/draw-rs/actions/workflows/ci.yml/badge.svg)](https://github.com/adrian-lin-1-0-0/draw-rs/actions/workflows/ci.yml)
 [![Platform](https://img.shields.io/badge/Platform-macOS_13%2B-black?logo=apple&logoColor=white)](https://apple.com/)
 [![Architecture](https://img.shields.io/badge/Architecture-SOLID_&_Idiomatic-blue)](https://en.wikipedia.org/wiki/SOLID)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)

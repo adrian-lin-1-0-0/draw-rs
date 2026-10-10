@@ -1,7 +1,8 @@
-use draw_rs::{
-    app::{AppEvent, DrawApp},
-    platform::MacosPlatformController,
-};
+use draw_rs::app::{AppEvent, DrawApp};
+#[cfg(not(target_os = "macos"))]
+use draw_rs::platform::DummyPlatformController;
+#[cfg(target_os = "macos")]
+use draw_rs::platform::MacosPlatformController;
 use global_hotkey::{
     GlobalHotKeyEvent, GlobalHotKeyManager, HotKeyState,
     hotkey::{Code, HotKey},
@@ -52,7 +53,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     });
 
     // 3. Dependency Inversion: Inject concrete platform controller into DrawApp
+    #[cfg(target_os = "macos")]
     let platform = Box::new(MacosPlatformController::new());
+    #[cfg(not(target_os = "macos"))]
+    let platform = Box::new(DummyPlatformController::new());
     let mut app = DrawApp::new(platform);
 
     // 4. Run application event loop

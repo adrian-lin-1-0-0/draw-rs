@@ -1,0 +1,56 @@
+name: CI
+
+on:
+  push:
+    branches: [ master, main ]
+  pull_request:
+    branches: [ master, main ]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test-linux:
+    name: Tests & Lints (Linux)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Setup Cargo dependency cache
+        uses: Swatinem/rust-cache@v2
+
+      - name: 1. Code Formatting (cargo fmt)
+        run: cargo fmt --all -- --check
+
+      - name: 2. Static Analysis & Linter (cargo clippy)
+        run: cargo clippy --all-targets -- -D warnings
+
+      - name: 3. Unit & Integration Tests (cargo test)
+        run: cargo test
+
+  build-macos:
+    name: Native Release Build (macOS)
+    runs-on: macos-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Setup Cargo dependency cache
+        uses: Swatinem/rust-cache@v2
+
+      - name: Build macOS Release Binary (cargo build --release)
+        run: cargo build --release
