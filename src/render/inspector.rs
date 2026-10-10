@@ -161,8 +161,6 @@ impl InspectorOverlay {
         let (card_w, card_h) = Self::get_card_size(scale_factor);
 
         // 1. Frosted dark glass background
-        let mut bg_pb = PathBuilder::new();
-        bg_pb.push_circle(pos.x + 12.0 * ui_scale, pos.y + 12.0 * ui_scale, 0.1); // dummy init
         let mut card_pb = PathBuilder::new();
         if let Some(rect) = tiny_skia::Rect::from_xywh(pos.x, pos.y, card_w, card_h) {
             card_pb.push_rect(rect);
