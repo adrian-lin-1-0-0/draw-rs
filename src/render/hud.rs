@@ -13,6 +13,7 @@ pub enum HudHitTarget {
     Color(PaletteColor),
     ToggleMode,
     ToggleLanguageMenu,
+    ToggleProperties,
     SelectLanguage(AppLanguage),
     Undo,
     Clear,
@@ -46,6 +47,7 @@ pub struct HudRenderParams {
     pub shape_count: usize,
     pub language: AppLanguage,
     pub is_lang_menu_open: bool,
+    pub is_properties_open: bool,
 }
 
 /// Renders a sleek, translucent floating HUD card displaying the operational
@@ -54,7 +56,7 @@ pub struct HudRenderParams {
 pub struct HudOverlay;
 
 impl HudOverlay {
-    pub const CARD_BASE_WIDTH: f32 = 510.0;
+    pub const CARD_BASE_WIDTH: f32 = 786.0;
     pub const CARD_BASE_HEIGHT: f32 = 116.0;
 
     /// Calculate the physical pixel size of the HUD card based on display scale factor.
@@ -93,8 +95,8 @@ impl HudOverlay {
         false
     }
 
-    /// Computes the exact bounding rectangles of all 13 interactive buttons on the HUD.
-    pub fn get_buttons(hud_pos: Point2D, scale_factor: f32) -> [HudButtonRect; 13] {
+    /// Computes the exact bounding rectangles of all 20 interactive buttons on the HUD.
+    pub fn get_buttons(hud_pos: Point2D, scale_factor: f32) -> [HudButtonRect; 20] {
         let ui_scale = (scale_factor.max(1.0) * 0.9).clamp(1.0, 2.5);
         let card_x = hud_pos.x;
         let card_y = hud_pos.y;
@@ -103,105 +105,161 @@ impl HudOverlay {
             // 0: Row 1 Mode Toggle button
             HudButtonRect {
                 target: HudHitTarget::ToggleMode,
-                x: card_x + 276.0 * ui_scale,
+                x: card_x + 530.0 * ui_scale,
                 y: card_y + 8.0 * ui_scale,
                 width: 136.0 * ui_scale,
                 height: 22.0 * ui_scale,
             },
-            // 1: Row 2 Tool Pen
+            // 1: Row 2 Tool Hand
             HudButtonRect {
-                target: HudHitTarget::Tool(DrawingTool::Pen),
-                x: card_x + 64.0 * ui_scale,
+                target: HudHitTarget::Tool(DrawingTool::Hand),
+                x: card_x + 58.0 * ui_scale,
                 y: card_y + 42.0 * ui_scale,
-                width: 62.0 * ui_scale,
+                width: 54.0 * ui_scale,
                 height: 24.0 * ui_scale,
             },
-            // 2: Row 2 Tool Circle
+            // 2: Row 2 Tool Selection
+            HudButtonRect {
+                target: HudHitTarget::Tool(DrawingTool::Selection),
+                x: card_x + 116.0 * ui_scale,
+                y: card_y + 42.0 * ui_scale,
+                width: 64.0 * ui_scale,
+                height: 24.0 * ui_scale,
+            },
+            // 3: Row 2 Tool Rectangle
+            HudButtonRect {
+                target: HudHitTarget::Tool(DrawingTool::Rectangle),
+                x: card_x + 184.0 * ui_scale,
+                y: card_y + 42.0 * ui_scale,
+                width: 54.0 * ui_scale,
+                height: 24.0 * ui_scale,
+            },
+            // 4: Row 2 Tool Diamond
+            HudButtonRect {
+                target: HudHitTarget::Tool(DrawingTool::Diamond),
+                x: card_x + 242.0 * ui_scale,
+                y: card_y + 42.0 * ui_scale,
+                width: 72.0 * ui_scale,
+                height: 24.0 * ui_scale,
+            },
+            // 5: Row 2 Tool Circle
             HudButtonRect {
                 target: HudHitTarget::Tool(DrawingTool::Circle),
-                x: card_x + 132.0 * ui_scale,
+                x: card_x + 318.0 * ui_scale,
+                y: card_y + 42.0 * ui_scale,
+                width: 50.0 * ui_scale,
+                height: 24.0 * ui_scale,
+            },
+            // 6: Row 2 Tool Arrow
+            HudButtonRect {
+                target: HudHitTarget::Tool(DrawingTool::Arrow),
+                x: card_x + 372.0 * ui_scale,
+                y: card_y + 42.0 * ui_scale,
+                width: 48.0 * ui_scale,
+                height: 24.0 * ui_scale,
+            },
+            // 7: Row 2 Tool Line
+            HudButtonRect {
+                target: HudHitTarget::Tool(DrawingTool::Line),
+                x: card_x + 424.0 * ui_scale,
+                y: card_y + 42.0 * ui_scale,
+                width: 52.0 * ui_scale,
+                height: 24.0 * ui_scale,
+            },
+            // 8: Row 2 Tool Pen
+            HudButtonRect {
+                target: HudHitTarget::Tool(DrawingTool::Pen),
+                x: card_x + 480.0 * ui_scale,
+                y: card_y + 42.0 * ui_scale,
+                width: 48.0 * ui_scale,
+                height: 24.0 * ui_scale,
+            },
+            // 9: Row 2 Tool Text
+            HudButtonRect {
+                target: HudHitTarget::Tool(DrawingTool::Text),
+                x: card_x + 532.0 * ui_scale,
+                y: card_y + 42.0 * ui_scale,
+                width: 52.0 * ui_scale,
+                height: 24.0 * ui_scale,
+            },
+            // 10: Row 2 Tool Eraser
+            HudButtonRect {
+                target: HudHitTarget::Tool(DrawingTool::Eraser),
+                x: card_x + 588.0 * ui_scale,
                 y: card_y + 42.0 * ui_scale,
                 width: 66.0 * ui_scale,
                 height: 24.0 * ui_scale,
             },
-            // 3: Row 2 Tool Arrow
-            HudButtonRect {
-                target: HudHitTarget::Tool(DrawingTool::Arrow),
-                x: card_x + 204.0 * ui_scale,
-                y: card_y + 42.0 * ui_scale,
-                width: 62.0 * ui_scale,
-                height: 24.0 * ui_scale,
-            },
-            // 4: Row 2 Tool Eraser
-            HudButtonRect {
-                target: HudHitTarget::Tool(DrawingTool::Eraser),
-                x: card_x + 272.0 * ui_scale,
-                y: card_y + 42.0 * ui_scale,
-                width: 82.0 * ui_scale,
-                height: 24.0 * ui_scale,
-            },
-            // 5: Row 2 Action Undo
+            // 11: Row 2 Action Undo
             HudButtonRect {
                 target: HudHitTarget::Undo,
-                x: card_x + 365.0 * ui_scale,
+                x: card_x + 658.0 * ui_scale,
                 y: card_y + 42.0 * ui_scale,
-                width: 64.0 * ui_scale,
+                width: 54.0 * ui_scale,
                 height: 24.0 * ui_scale,
             },
-            // 6: Row 2 Action Clear
+            // 12: Row 2 Action Clear
             HudButtonRect {
                 target: HudHitTarget::Clear,
-                x: card_x + 435.0 * ui_scale,
+                x: card_x + 716.0 * ui_scale,
                 y: card_y + 42.0 * ui_scale,
-                width: 64.0 * ui_scale,
+                width: 56.0 * ui_scale,
                 height: 24.0 * ui_scale,
             },
-            // 7: Row 3 Color 1 (Cyan) - Sleek icon chip without redundant text
+            // 13: Row 3 Color 1 (Cyan) - Sleek icon chip without redundant text
             HudButtonRect {
                 target: HudHitTarget::Color(PaletteColor::Cyan),
-                x: card_x + 64.0 * ui_scale,
+                x: card_x + 58.0 * ui_scale,
                 y: card_y + 79.0 * ui_scale,
                 width: 28.0 * ui_scale,
                 height: 24.0 * ui_scale,
             },
-            // 8: Row 3 Color 2 (Emerald)
+            // 14: Row 3 Color 2 (Emerald)
             HudButtonRect {
                 target: HudHitTarget::Color(PaletteColor::Emerald),
-                x: card_x + 98.0 * ui_scale,
+                x: card_x + 90.0 * ui_scale,
                 y: card_y + 79.0 * ui_scale,
                 width: 28.0 * ui_scale,
                 height: 24.0 * ui_scale,
             },
-            // 9: Row 3 Color 3 (Coral)
+            // 15: Row 3 Color 3 (Coral)
             HudButtonRect {
                 target: HudHitTarget::Color(PaletteColor::Coral),
-                x: card_x + 132.0 * ui_scale,
+                x: card_x + 122.0 * ui_scale,
                 y: card_y + 79.0 * ui_scale,
                 width: 28.0 * ui_scale,
                 height: 24.0 * ui_scale,
             },
-            // 10: Row 3 Color 4 (Amber)
+            // 16: Row 3 Color 4 (Amber)
             HudButtonRect {
                 target: HudHitTarget::Color(PaletteColor::Amber),
-                x: card_x + 166.0 * ui_scale,
+                x: card_x + 154.0 * ui_scale,
                 y: card_y + 79.0 * ui_scale,
                 width: 28.0 * ui_scale,
                 height: 24.0 * ui_scale,
             },
-            // 11: Row 3 Color 5 (Violet)
+            // 17: Row 3 Color 5 (Violet)
             HudButtonRect {
                 target: HudHitTarget::Color(PaletteColor::Violet),
-                x: card_x + 200.0 * ui_scale,
+                x: card_x + 186.0 * ui_scale,
                 y: card_y + 79.0 * ui_scale,
                 width: 28.0 * ui_scale,
                 height: 24.0 * ui_scale,
             },
-            // 12: Row 3 Language Dropdown Trigger Button
+            // 18: Row 3 Properties Toggle Button
+            HudButtonRect {
+                target: HudHitTarget::ToggleProperties,
+                x: card_x + 556.0 * ui_scale,
+                y: card_y + 79.0 * ui_scale,
+                width: 104.0 * ui_scale,
+                height: 24.0 * ui_scale,
+            },
+            // 19: Row 3 Language Dropdown Trigger Button
             HudButtonRect {
                 target: HudHitTarget::ToggleLanguageMenu,
-                x: card_x + 395.0 * ui_scale,
+                x: card_x + 668.0 * ui_scale,
                 y: card_y + 79.0 * ui_scale,
-                width: 102.0 * ui_scale,
+                width: 104.0 * ui_scale,
                 height: 24.0 * ui_scale,
             },
         ]
@@ -214,7 +272,7 @@ impl HudOverlay {
         let card_y = hud_pos.y;
         let menu_w = 116.0 * ui_scale;
         let menu_h = 62.0 * ui_scale;
-        let menu_x = card_x + (395.0 + 102.0) * ui_scale - menu_w;
+        let menu_x = card_x + (668.0 + 104.0) * ui_scale - menu_w;
         let menu_y = card_y + (79.0 + 24.0 + 5.0) * ui_scale;
         (menu_x, menu_y, menu_w, menu_h)
     }
@@ -245,6 +303,11 @@ impl HudOverlay {
                 height: item_h,
             },
         ]
+    }
+
+    /// Returns the bounding rectangle for the Properties toggle trigger button on Row 3.
+    pub fn get_properties_button(hud_pos: Point2D, scale_factor: f32) -> HudButtonRect {
+        Self::get_buttons(hud_pos, scale_factor)[18]
     }
 
     /// Performs hit-testing against the HUD and any open dropdown popover.
@@ -424,14 +487,14 @@ impl HudOverlay {
         let drag_hint = language.drag_hint();
         BitmapFont::draw_text(
             pixmap,
-            card_x + 424.0 * ui_scale,
+            card_x + 686.0 * ui_scale,
             card_y + 15.0 * ui_scale,
             drag_hint,
             Color::from_rgba8(148, 163, 184, 180),
             0.88 * ui_scale,
         );
 
-        // 4. Row 2: Tools (Label + Pen + Circle + Arrow + Eraser + Undo + Clear)
+        // 4. Row 2: Tools (Label + Hand + Selection + Rectangle + Diamond + Circle + Arrow + Line + Pen + Text + Eraser + Undo + Clear)
         let tools_label = language.tools_label();
         BitmapFont::draw_text(
             pixmap,
@@ -443,10 +506,16 @@ impl HudOverlay {
         );
 
         let tool_items = [
-            (buttons[1], DrawingTool::Pen),
-            (buttons[2], DrawingTool::Circle),
-            (buttons[3], DrawingTool::Arrow),
-            (buttons[4], DrawingTool::Eraser),
+            (buttons[1], DrawingTool::Hand),
+            (buttons[2], DrawingTool::Selection),
+            (buttons[3], DrawingTool::Rectangle),
+            (buttons[4], DrawingTool::Diamond),
+            (buttons[5], DrawingTool::Circle),
+            (buttons[6], DrawingTool::Arrow),
+            (buttons[7], DrawingTool::Line),
+            (buttons[8], DrawingTool::Pen),
+            (buttons[9], DrawingTool::Text),
+            (buttons[10], DrawingTool::Eraser),
         ];
 
         for (btn, t) in tool_items {
@@ -482,7 +551,7 @@ impl HudOverlay {
         }
 
         // Action: Undo
-        let undo_btn = buttons[5];
+        let undo_btn = buttons[11];
         let undo_text = language.action_undo();
         Self::draw_button_pill(
             pixmap,
@@ -501,7 +570,7 @@ impl HudOverlay {
         );
 
         // Action: Clear
-        let clear_btn = buttons[6];
+        let clear_btn = buttons[12];
         let clear_text = language.action_clear();
         Self::draw_button_pill(
             pixmap,
@@ -531,11 +600,11 @@ impl HudOverlay {
         );
 
         let color_items = [
-            (buttons[7], PaletteColor::Cyan),
-            (buttons[8], PaletteColor::Emerald),
-            (buttons[9], PaletteColor::Coral),
-            (buttons[10], PaletteColor::Amber),
-            (buttons[11], PaletteColor::Violet),
+            (buttons[13], PaletteColor::Cyan),
+            (buttons[14], PaletteColor::Emerald),
+            (buttons[15], PaletteColor::Coral),
+            (buttons[16], PaletteColor::Amber),
+            (buttons[17], PaletteColor::Violet),
         ];
 
         for (btn, col) in color_items {
@@ -605,15 +674,50 @@ impl HudOverlay {
         // Color keys hint
         BitmapFont::draw_text(
             pixmap,
-            card_x + 236.0 * ui_scale,
+            card_x + 222.0 * ui_scale,
             card_y + 85.0 * ui_scale,
             "[1-5]",
             Color::from_rgba8(100, 116, 139, 200),
             0.82 * ui_scale,
         );
 
+        // Properties dropdown toggle button
+        let prop_btn = buttons[18];
+        let is_prop_open = params.is_properties_open;
+        let prop_label = language.properties_button_label(is_prop_open);
+
+        let (prop_bg, prop_border, prop_text_color) = if is_prop_open {
+            (
+                Color::from_rgba8(99, 102, 241, 70),
+                Color::from_rgba8(165, 180, 252, 200),
+                Color::from_rgba8(238, 242, 255, 255),
+            )
+        } else {
+            (
+                Color::from_rgba8(99, 102, 241, 28),
+                Color::from_rgba8(129, 140, 248, 100),
+                Color::from_rgba8(224, 231, 255, 240),
+            )
+        };
+
+        Self::draw_button_pill(
+            pixmap,
+            &prop_btn,
+            4.0 * ui_scale,
+            prop_bg,
+            prop_border,
+            1.2 * ui_scale,
+        );
+        Self::draw_centered_text(
+            pixmap,
+            &prop_btn,
+            &prop_label,
+            prop_text_color,
+            0.84 * ui_scale,
+        );
+
         // Language dropdown trigger button
-        let lang_btn = buttons[12];
+        let lang_btn = buttons[19];
         let is_menu_open = params.is_lang_menu_open;
         let lang_label = language.dropdown_label(is_menu_open);
 

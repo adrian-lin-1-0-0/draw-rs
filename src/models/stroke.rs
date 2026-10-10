@@ -1,6 +1,6 @@
 use tiny_skia::{Color, LineCap, LineJoin, Paint, PathBuilder, Pixmap, Stroke, Transform};
 
-use super::{Drawable, point::Point2D};
+use super::{CornerStyle, Drawable, Point2D, Rect2D, Sloppiness, StrokeStyle, generate_shape_seed};
 
 /// A freehand pen stroke made of sampled 2D points.
 /// Implements quadratic Bézier curve smoothing for natural and responsive ink strokes.
@@ -9,6 +9,10 @@ pub struct StrokeShape {
     pub points: Vec<Point2D>,
     pub color: Color,
     pub width: f32,
+    pub stroke_style: StrokeStyle,
+    pub sloppiness: Sloppiness,
+    pub opacity: f32,
+    pub seed: u64,
 }
 
 impl StrokeShape {
@@ -17,6 +21,10 @@ impl StrokeShape {
             points,
             color,
             width,
+            stroke_style: StrokeStyle::Solid,
+            sloppiness: Sloppiness::Artist,
+            opacity: 1.0,
+            seed: generate_shape_seed(),
         }
     }
 }
@@ -28,13 +36,17 @@ impl Drawable for StrokeShape {
         }
 
         let mut paint = Paint::default();
-        paint.set_color(self.color);
+        paint.set_color(super::rough::safe_color_with_alpha(
+            self.color,
+            self.opacity,
+        ));
         paint.anti_alias = true;
 
         let stroke = Stroke {
             width: self.width,
             line_cap: LineCap::Round,
             line_join: LineJoin::Round,
+            dash: self.stroke_style.to_stroke_dash(self.width),
             ..Default::default()
         };
 
@@ -93,5 +105,104 @@ impl Drawable for StrokeShape {
             }
         }
         false
+    }
+
+    fn hit_test(&self, point: Point2D) -> bool {
+        let tolerance = (self.width * 0.5).max(6.0);
+        self.intersects(point, tolerance)
+    }
+
+    fn bounding_box(&self) -> Option<Rect2D> {
+        if self.points.is_empty() {
+            return None;
+        }
+        let mut min_x = self.points[0].x;
+        let mut min_y = self.points[0].y;
+        let mut max_x = self.points[0].x;
+        let mut max_y = self.points[0].y;
+
+        for p in &self.points {
+            min_x = min_x.min(p.x);
+            min_y = min_y.min(p.y);
+            max_x = max_x.max(p.x);
+            max_y = max_y.max(p.y);
+        }
+
+        let margin = (self.width * 0.5).max(4.0);
+        Some(Rect2D::new(min_x, min_y, max_x, max_y).expand(margin))
+    }
+
+    fn translate(&mut self, offset: Point2D) {
+        for p in &mut self.points {
+            *p = *p + offset;
+        }
+    }
+
+    fn resize(&mut self, old_bounds: Rect2D, new_bounds: Rect2D) {
+        if old_bounds.width() <= 0.0 || old_bounds.height() <= 0.0 {
+            return;
+        }
+        for p in &mut self.points {
+            let tx = (p.x - old_bounds.min_x) / old_bounds.width();
+            let ty = (p.y - old_bounds.min_y) / old_bounds.height();
+            p.x = new_bounds.min_x + tx * new_bounds.width();
+            p.y = new_bounds.min_y + ty * new_bounds.height();
+        }
+    }
+
+    fn clone_box(&self) -> Box<dyn Drawable> {
+        Box::new(self.clone())
+    }
+
+    fn stroke_color(&self) -> Color {
+        self.color
+    }
+
+    fn set_stroke_color(&mut self, color: Color) {
+        self.color = color;
+    }
+
+    fn stroke_width(&self) -> f32 {
+        self.width
+    }
+
+    fn set_stroke_width(&mut self, width: f32) {
+        self.width = width;
+    }
+
+    fn stroke_style(&self) -> StrokeStyle {
+        self.stroke_style
+    }
+
+    fn set_stroke_style(&mut self, style: StrokeStyle) {
+        self.stroke_style = style;
+    }
+
+    fn sloppiness(&self) -> Sloppiness {
+        self.sloppiness
+    }
+
+    fn set_sloppiness(&mut self, sloppiness: Sloppiness) {
+        self.sloppiness = sloppiness;
+    }
+
+    fn corner_style(&self) -> CornerStyle {
+        CornerStyle::Sharp
+    }
+
+    fn opacity(&self) -> f32 {
+        self.opacity
+    }
+
+    fn set_opacity(&mut self, opacity: f32) {
+        self.opacity = opacity;
+    }
+
+    fn seed(&self) -> u64 {
+        self.seed
+    }
+
+    fn set_seed(&mut self, seed: u64) {
+        self.seed = seed;
     }
 }
