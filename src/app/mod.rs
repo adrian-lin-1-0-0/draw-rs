@@ -22,7 +22,7 @@ use crate::render::{
     InspectorOverlay, InspectorRenderParams, SelectionRenderer,
 };
 pub use i18n::AppLanguage;
-use state::{AppMode, DragState, DrawingTool, PaletteColor};
+pub use state::{AppMode, DragState, DrawingTool, PaletteColor};
 
 /// Custom application event triggered by global hotkeys or background threads.
 #[derive(Debug, Clone)]
@@ -103,9 +103,7 @@ impl DrawApp {
             text_editing: None,
             modifiers: ModifiersState::default(),
             active_stroke_color: initial_color.to_color(),
-            active_fill_color: Some(
-                Color::from_rgba(0.22, 0.74, 0.97, 0.25).unwrap_or(Color::TRANSPARENT),
-            ),
+            active_fill_color: None,
             active_stroke_style: StrokeStyle::Solid,
             active_sloppiness: Sloppiness::Artist,
             active_corner_style: CornerStyle::Sharp,
@@ -142,6 +140,16 @@ impl DrawApp {
     /// Access currently selected shape indices.
     pub fn selected_indices(&self) -> &[usize] {
         &self.selected_indices
+    }
+
+    /// Access the active fill color (None for transparent / no fill).
+    pub fn active_fill_color(&self) -> Option<Color> {
+        self.active_fill_color
+    }
+
+    /// Access the active stroke color.
+    pub fn active_stroke_color(&self) -> Color {
+        self.active_stroke_color
     }
 
     /// Computes the default anchored position for the Properties panel right below the HUD card.

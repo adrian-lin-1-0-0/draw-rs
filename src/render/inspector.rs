@@ -328,6 +328,20 @@ impl InspectorOverlay {
             p.set_color(Color::from_rgba8(39, 39, 42, 255));
             pixmap.fill_path(&path, &p, FillRule::Winding, Transform::identity(), None);
 
+            // Diagonal red slash indicating transparent / no fill
+            let mut slash_pb = PathBuilder::new();
+            slash_pb.move_to(none_cx - 5.0 * ui_scale, none_cy + 5.0 * ui_scale);
+            slash_pb.line_to(none_cx + 5.0 * ui_scale, none_cy - 5.0 * ui_scale);
+            if let Some(slash_path) = slash_pb.finish() {
+                let mut slash_p = Paint::default();
+                slash_p.set_color(Color::from_rgba8(239, 68, 68, 220));
+                let slash_s = Stroke {
+                    width: 1.5 * ui_scale,
+                    ..Default::default()
+                };
+                pixmap.stroke_path(&slash_path, &slash_p, &slash_s, Transform::identity(), None);
+            }
+
             let mut border_p = Paint::default();
             border_p.set_color(if params.fill_color.is_none() {
                 Color::from_rgba8(255, 255, 255, 255)
@@ -335,7 +349,11 @@ impl InspectorOverlay {
                 Color::from_rgba8(113, 113, 122, 200)
             });
             let s = Stroke {
-                width: 1.5 * ui_scale,
+                width: if params.fill_color.is_none() {
+                    2.0 * ui_scale
+                } else {
+                    1.5 * ui_scale
+                },
                 ..Default::default()
             };
             pixmap.stroke_path(&path, &border_p, &s, Transform::identity(), None);
