@@ -5,6 +5,10 @@ use tiny_skia::Pixmap;
 enum CanvasAction {
     Draw(Box<dyn Drawable>),
     DrawBatch(Vec<Box<dyn Drawable>>),
+    Paste {
+        shapes: Vec<Box<dyn Drawable>>,
+        step: usize,
+    },
     Erase(Vec<(usize, Box<dyn Drawable>)>),
     Clear(Vec<Box<dyn Drawable>>),
     Transform {
@@ -111,6 +115,13 @@ impl CanvasController {
                     .truncate(self.shapes.len().saturating_sub(count));
                 self.redo_history.push(CanvasAction::DrawBatch(batch));
             }
+            CanvasAction::Paste { shapes, step } => {
+                let count = shapes.len();
+                self.shapes
+                    .truncate(self.shapes.len().saturating_sub(count));
+                self.paste_count = step;
+                self.redo_history.push(CanvasAction::Paste { shapes, step });
+            }
             CanvasAction::Erase(removed) => {
                 // Restore erased shapes in reverse removal order to maintain indices
                 for (index, shape) in removed.iter().rev() {
@@ -163,6 +174,14 @@ impl CanvasController {
                     self.shapes.push(shape.clone_box());
                 }
                 self.action_history.push(CanvasAction::DrawBatch(batch));
+            }
+            CanvasAction::Paste { shapes, step } => {
+                for shape in &shapes {
+                    self.shapes.push(shape.clone_box());
+                }
+                self.paste_count = step.saturating_add(1);
+                self.action_history
+                    .push(CanvasAction::Paste { shapes, step });
             }
             CanvasAction::Erase(removed) => {
                 // Erase again in descending order
@@ -320,9 +339,12 @@ impl CanvasController {
             return Vec::new();
         }
 
-        let step = self.paste_count.max(1) as f32;
-        let offset = Point2D::new(offset_per_paste.x * step, offset_per_paste.y * step);
-        self.paste_count = self.paste_count.saturating_add(1);
+        let step = self.paste_count.max(1);
+        let offset = Point2D::new(
+            offset_per_paste.x * step as f32,
+            offset_per_paste.y * step as f32,
+        );
+        self.paste_count = step.saturating_add(1);
 
         let mut cloned_shapes = Vec::new();
         let mut new_indices = Vec::new();
@@ -338,8 +360,10 @@ impl CanvasController {
             self.shapes.push(s.clone_box());
         }
 
-        self.action_history
-            .push(CanvasAction::DrawBatch(cloned_shapes));
+        self.action_history.push(CanvasAction::Paste {
+            shapes: cloned_shapes,
+            step,
+        });
         self.redo_history.clear();
 
         new_indices
@@ -353,6 +377,11 @@ impl CanvasController {
     /// Returns the number of shapes currently in the clipboard.
     pub fn clipboard_count(&self) -> usize {
         self.clipboard.len()
+    }
+
+    /// Returns the current consecutive paste count offset.
+    pub fn paste_count(&self) -> usize {
+        self.paste_count
     }
 
     /// Deletes shapes at `indices` and commits to undo history.

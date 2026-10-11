@@ -97,14 +97,7 @@ impl PlatformKeymap for MacosKeymap {
                     && !modifiers.shift_key()
                     && key == KeyCode::KeyD
             }
-            ShortcutAction::Undo => {
-                (!self.is_primary_modifier(modifiers)
-                    && !modifiers.shift_key()
-                    && key == KeyCode::KeyZ)
-                    || (self.is_primary_modifier(modifiers)
-                        && !modifiers.shift_key()
-                        && key == KeyCode::KeyZ)
-            }
+            ShortcutAction::Undo => !modifiers.shift_key() && key == KeyCode::KeyZ,
             ShortcutAction::Redo => {
                 self.is_primary_modifier_with_shift(modifiers) && key == KeyCode::KeyZ
             }
@@ -169,14 +162,7 @@ impl PlatformKeymap for LinuxKeymap {
                     && !modifiers.shift_key()
                     && key == KeyCode::KeyD
             }
-            ShortcutAction::Undo => {
-                (!self.is_primary_modifier(modifiers)
-                    && !modifiers.shift_key()
-                    && key == KeyCode::KeyZ)
-                    || (self.is_primary_modifier(modifiers)
-                        && !modifiers.shift_key()
-                        && key == KeyCode::KeyZ)
-            }
+            ShortcutAction::Undo => !modifiers.shift_key() && key == KeyCode::KeyZ,
             ShortcutAction::Redo => {
                 // Linux standard redo: Ctrl+Y OR Ctrl+Shift+Z
                 (self.is_primary_modifier(modifiers)

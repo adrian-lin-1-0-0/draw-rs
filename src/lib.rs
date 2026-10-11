@@ -4,7 +4,7 @@ pub mod models;
 pub mod platform;
 pub mod render;
 
-pub use app::{AppEvent, AppLanguage, DrawApp};
+pub use app::{AppEvent, AppLanguage, DrawApp, TextEditSession};
 pub use controller::CanvasController;
 pub use models::{
     ArrowShape, CircleShape, CornerStyle, DiamondShape, Drawable, LineShape, Point2D, Rect2D,

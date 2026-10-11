@@ -129,6 +129,21 @@ impl DrawApp {
         &*self.keymap
     }
 
+    /// Access the canvas controller.
+    pub fn canvas(&self) -> &CanvasController {
+        &self.canvas
+    }
+
+    /// Mutably access the canvas controller.
+    pub fn canvas_mut(&mut self) -> &mut CanvasController {
+        &mut self.canvas
+    }
+
+    /// Access currently selected shape indices.
+    pub fn selected_indices(&self) -> &[usize] {
+        &self.selected_indices
+    }
+
     /// Computes the default anchored position for the Properties panel right below the HUD card.
     pub fn default_inspector_pos(&self) -> Point2D {
         let ui_scale = (self.scale_factor.max(1.0) * 0.9).clamp(1.0, 2.5) as f32;
@@ -1488,6 +1503,22 @@ impl ApplicationHandler<AppEvent> for DrawApp {
                         .matches_action(ShortcutAction::Copy, &self.modifiers, key)
                     {
                         self.canvas.copy_selected(&[shape_idx]);
+                        return;
+                    }
+
+                    if self
+                        .keymap
+                        .matches_action(ShortcutAction::Paste, &self.modifiers, key)
+                    {
+                        self.commit_text_editing();
+                        let new_indices = self.canvas.paste(Point2D::new(20.0, 20.0));
+                        if !new_indices.is_empty() {
+                            self.selected_indices = new_indices;
+                        }
+                        if let Some(w) = &self.window {
+                            w.set_cursor(self.default_cursor_for_tool());
+                            w.request_redraw();
+                        }
                         return;
                     }
 

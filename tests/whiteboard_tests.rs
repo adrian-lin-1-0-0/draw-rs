@@ -2,7 +2,8 @@ use draw_rs::{
     AppLanguage, ArrowShape, CanvasController, CircleShape, CornerStyle, DiamondShape, DrawApp,
     Drawable, DummyPlatformController, InspectorHitTarget, InspectorOverlay, InspectorRenderParams,
     LineShape, LinuxKeymap, MacosKeymap, PlatformKeymap, Point2D, Rect2D, RectangleShape,
-    SelectionRenderer, ShortcutAction, Sloppiness, StrokeStyle, TextShape, TransformHandle,
+    SelectionRenderer, ShortcutAction, Sloppiness, StrokeStyle, TextEditSession, TextShape,
+    TransformHandle,
 };
 use tiny_skia::{Color, Pixmap};
 use winit::keyboard::{KeyCode, ModifiersState};
@@ -715,4 +716,137 @@ fn test_draw_app_with_injected_platform_keymap() {
     let dummy2 = Box::new(DummyPlatformController::new());
     let app_mac = DrawApp::with_keymap(dummy2, Box::new(MacosKeymap));
     assert_eq!(app_mac.keymap().primary_modifier_name(), "Cmd");
+}
+
+#[test]
+fn test_paste_counter_restored_on_undo_and_redo() {
+    let mut canvas = CanvasController::new();
+    let rect = RectangleShape::new(
+        Point2D::new(50.0, 50.0),
+        100.0,
+        60.0,
+        Color::from_rgba8(255, 0, 0, 255),
+        None,
+        2.0,
+    );
+    canvas.push_shape(Box::new(rect));
+
+    // Copy shape
+    assert_eq!(canvas.copy_selected(&[0]), 1);
+    assert_eq!(canvas.paste_count(), 1);
+
+    // Paste 1: offset (20.0, 20.0) -> position (70.0, 70.0)
+    let p1 = canvas.paste(Point2D::new(20.0, 20.0));
+    assert_eq!(p1, vec![1]);
+    assert_eq!(canvas.paste_count(), 2);
+    let bb1 = canvas.shape(1).unwrap().bounding_box().unwrap();
+    assert_eq!(bb1.min_x, 70.0);
+    assert_eq!(bb1.min_y, 70.0);
+
+    // Paste 2: offset (40.0, 40.0) -> position (90.0, 90.0)
+    let p2 = canvas.paste(Point2D::new(20.0, 20.0));
+    assert_eq!(p2, vec![2]);
+    assert_eq!(canvas.paste_count(), 3);
+    let bb2 = canvas.shape(2).unwrap().bounding_box().unwrap();
+    assert_eq!(bb2.min_x, 90.0);
+    assert_eq!(bb2.min_y, 90.0);
+
+    // Undo Paste 2 -> paste_count must be restored to 2
+    assert!(canvas.undo());
+    assert_eq!(canvas.shape_count(), 2);
+    assert_eq!(canvas.paste_count(), 2);
+
+    // Paste after undo -> must use offset (40.0, 40.0) at (90.0, 90.0), NOT (60.0, 60.0)
+    let p3 = canvas.paste(Point2D::new(20.0, 20.0));
+    assert_eq!(p3, vec![2]);
+    assert_eq!(canvas.paste_count(), 3);
+    let bb3 = canvas.shape(2).unwrap().bounding_box().unwrap();
+    assert_eq!(bb3.min_x, 90.0);
+    assert_eq!(bb3.min_y, 90.0);
+
+    // Undo Paste 3 and Undo Paste 1
+    assert!(canvas.undo()); // drops p3, paste_count -> 2
+    assert_eq!(canvas.paste_count(), 2);
+    assert!(canvas.undo()); // drops p1, paste_count -> 1
+    assert_eq!(canvas.paste_count(), 1);
+    assert_eq!(canvas.shape_count(), 1);
+
+    // Redo Paste 1
+    assert!(canvas.redo());
+    assert_eq!(canvas.shape_count(), 2);
+    assert_eq!(canvas.paste_count(), 2);
+
+    // Redo Paste 3
+    assert!(canvas.redo());
+    assert_eq!(canvas.shape_count(), 3);
+    assert_eq!(canvas.paste_count(), 3);
+}
+
+#[test]
+fn test_keymap_undo_matcher_semantics() {
+    let mac = MacosKeymap;
+    let lin = LinuxKeymap;
+
+    let empty_mod = ModifiersState::empty();
+    let super_mod = ModifiersState::SUPER;
+    let ctrl_mod = ModifiersState::CONTROL;
+    let shift_mod = ModifiersState::SHIFT;
+    let super_shift = ModifiersState::SUPER | ModifiersState::SHIFT;
+    let ctrl_shift = ModifiersState::CONTROL | ModifiersState::SHIFT;
+
+    // macOS: KeyZ alone or with Cmd/Ctrl should trigger Undo (as long as Shift is not pressed)
+    assert!(mac.matches_action(ShortcutAction::Undo, &super_mod, KeyCode::KeyZ));
+    assert!(mac.matches_action(ShortcutAction::Undo, &empty_mod, KeyCode::KeyZ));
+    assert!(!mac.matches_action(ShortcutAction::Undo, &shift_mod, KeyCode::KeyZ));
+    assert!(!mac.matches_action(ShortcutAction::Undo, &super_shift, KeyCode::KeyZ));
+
+    // Linux: KeyZ alone or with Ctrl should trigger Undo (as long as Shift is not pressed)
+    assert!(lin.matches_action(ShortcutAction::Undo, &ctrl_mod, KeyCode::KeyZ));
+    assert!(lin.matches_action(ShortcutAction::Undo, &empty_mod, KeyCode::KeyZ));
+    assert!(!lin.matches_action(ShortcutAction::Undo, &shift_mod, KeyCode::KeyZ));
+    assert!(!lin.matches_action(ShortcutAction::Undo, &ctrl_shift, KeyCode::KeyZ));
+    assert!(!lin.matches_action(ShortcutAction::Undo, &ctrl_mod, KeyCode::KeyY));
+}
+
+#[test]
+fn test_text_editing_commit_and_paste_behavior() {
+    let dummy = Box::new(DummyPlatformController::new());
+    let mut app = DrawApp::with_keymap(dummy, Box::new(MacosKeymap));
+
+    // 1. Setup a shape on canvas and copy it to clipboard
+    let rect = RectangleShape::new(
+        Point2D::new(10.0, 10.0),
+        50.0,
+        50.0,
+        Color::from_rgba8(255, 0, 0, 255),
+        None,
+        1.0,
+    );
+    app.canvas_mut().push_shape(Box::new(rect));
+    app.canvas_mut().copy_selected(&[0]);
+    assert!(app.canvas().has_clipboard());
+
+    // 2. Start inline text editing with an empty new text shape
+    let text = TextShape::new(
+        Point2D::new(100.0, 100.0),
+        "",
+        20.0,
+        Color::from_rgba8(0, 0, 0, 255),
+    );
+    app.canvas_mut().push_shape(Box::new(text));
+    app.text_editing = Some(TextEditSession {
+        shape_index: 1,
+        is_new: true,
+    });
+    assert_eq!(app.canvas().shape_count(), 2);
+
+    // Commit text editing: since empty and new, it should be deleted
+    app.commit_text_editing();
+    assert_eq!(app.canvas().shape_count(), 1);
+    assert!(app.text_editing.is_none());
+
+    // Paste now produces the pasted shape at offset (20, 20)
+    let pasted = app.canvas_mut().paste(Point2D::new(20.0, 20.0));
+    assert_eq!(pasted, vec![1]);
+    assert_eq!(app.canvas().shape_count(), 2);
 }
