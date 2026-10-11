@@ -87,11 +87,11 @@ fn default_text() -> String {
 }
 
 fn default_action_copy() -> String {
-    "Copy [Cmd+C]".to_string()
+    "Copy [Cmd/Ctrl+C]".to_string()
 }
 
 fn default_action_paste() -> String {
-    "Paste [Cmd+V]".to_string()
+    "Paste [Cmd/Ctrl+V]".to_string()
 }
 
 #[derive(Debug, Clone, Deserialize)]

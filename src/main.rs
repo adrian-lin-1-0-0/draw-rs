@@ -19,8 +19,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("  [E]         : Switch directly to Eraser (橡皮擦)");
     println!("  [P]         : Switch directly to Pen (手繪筆)");
     println!("  [1 - 5]     : Switch Colors (Cyan, Emerald, Coral, Amber, Violet)");
-    println!("  [Cmd+C / V] : Copy & Paste selected shapes (複製 / 貼上)");
-    println!("  [Cmd+D]     : Duplicate selected shapes (再製)");
+    println!("  [Cmd/Ctrl+C / V] : Copy & Paste selected shapes (複製 / 貼上)");
+    println!("  [Cmd/Ctrl+D]     : Duplicate selected shapes (再製)");
     println!("  [Z]         : Undo last action (Draw, Erase, Clear)");
     println!("  [C]         : Clear all doodles");
     println!("  [Esc]       : Exit application");

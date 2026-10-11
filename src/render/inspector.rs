@@ -140,8 +140,8 @@ impl InspectorOverlay {
         }
 
         // Section 6: Actions
-        // Row 1: Duplicate, Delete (ry: 288..314)
-        if (288.0..=314.0).contains(&ry) && (14.0..=222.0).contains(&rx) {
+        // Row 1: Duplicate, Delete (ry: 288..312)
+        if (288.0..=312.0).contains(&ry) && (14.0..=222.0).contains(&rx) {
             let btn_w = (222.0 - 14.0) / 2.0;
             let idx = ((rx - 14.0) / btn_w) as usize;
             match idx {
@@ -150,8 +150,8 @@ impl InspectorOverlay {
             }
         }
 
-        // Row 2: Copy, Paste (ry: 318..344)
-        if (318.0..=344.0).contains(&ry) && (14.0..=222.0).contains(&rx) {
+        // Row 2: Copy, Paste (ry: 318..342)
+        if (318.0..=342.0).contains(&ry) && (14.0..=222.0).contains(&rx) {
             let btn_w = (222.0 - 14.0) / 2.0;
             let idx = ((rx - 14.0) / btn_w) as usize;
             match idx {

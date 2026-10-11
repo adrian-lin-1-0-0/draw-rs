@@ -392,6 +392,20 @@ fn test_inspector_hud_hit_testing_and_rendering() {
         InspectorHitTarget::Paste
     );
 
+    // Hitbox boundary tests: Row 1 is 288..=312, Row 2 is 318..=342.
+    // 313..317 is the gap between Row 1 and Row 2, and >342 is below Row 2.
+    let gap_point = Point2D::new(inspector_pos.x + 50.0, inspector_pos.y + 314.0);
+    assert_eq!(
+        InspectorOverlay::hit_test(inspector_pos, gap_point, scale),
+        InspectorHitTarget::None
+    );
+
+    let below_row2 = Point2D::new(inspector_pos.x + 50.0, inspector_pos.y + 343.0);
+    assert_eq!(
+        InspectorOverlay::hit_test(inspector_pos, below_row2, scale),
+        InspectorHitTarget::None
+    );
+
     // Render inspector onto pixmap (English)
     let mut pixmap = Pixmap::new(300, 750).unwrap();
     let params = InspectorRenderParams {
@@ -599,8 +613,39 @@ fn test_text_enlargement_beyond_previous_limit() {
     // 5. Verify stroke_width setting (e.g. from general color/style change) does not crush font size
     large_text.set_stroke_width(2.5);
     assert_eq!(large_text.font_size, 500.0);
+    // And verify stroke_width() does not return font size (1000 or 500), avoiding canvas stroke_width pollution
+    assert_ne!(large_text.stroke_width(), 500.0);
 
     // 6. Test set_font_size method
     large_text.set_font_size(600.0);
     assert_eq!(large_text.font_size, 600.0);
+}
+
+#[test]
+fn test_text_font_size_scaling_undoable() {
+    let mut canvas = CanvasController::new();
+    let text = TextShape::new(
+        Point2D::new(50.0, 50.0),
+        "Undo Scaling Test",
+        20.0,
+        Color::from_rgba8(255, 255, 255, 255),
+    );
+    canvas.push_shape(Box::new(text));
+    assert_eq!(canvas.shape(0).unwrap().font_size(), Some(20.0));
+
+    // Simulate font scaling with commit_transform
+    let orig = vec![(0, canvas.shape(0).unwrap().clone_box())];
+    canvas.shape_mut(0).unwrap().set_font_size(24.0);
+    let modified = vec![(0, canvas.shape(0).unwrap().clone_box())];
+    canvas.commit_transform(orig, modified);
+
+    assert_eq!(canvas.shape(0).unwrap().font_size(), Some(24.0));
+
+    // Undo should restore 20.0
+    assert!(canvas.undo());
+    assert_eq!(canvas.shape(0).unwrap().font_size(), Some(20.0));
+
+    // Redo should restore 24.0
+    assert!(canvas.redo());
+    assert_eq!(canvas.shape(0).unwrap().font_size(), Some(24.0));
 }

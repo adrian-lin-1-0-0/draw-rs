@@ -238,16 +238,6 @@ impl Drawable for TextShape {
         self.color = color;
     }
 
-    fn stroke_width(&self) -> f32 {
-        self.font_size
-    }
-
-    fn set_stroke_width(&mut self, width: f32) {
-        if width >= Self::MIN_FONT_SIZE {
-            self.font_size = width.clamp(Self::MIN_FONT_SIZE, Self::MAX_FONT_SIZE);
-        }
-    }
-
     fn font_size(&self) -> Option<f32> {
         Some(self.font_size)
     }

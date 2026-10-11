@@ -1116,11 +1116,16 @@ impl ApplicationHandler<AppEvent> for DrawApp {
                                     if let Some(s) = self.canvas.shape(idx) {
                                         self.active_stroke_color = s.stroke_color();
                                         self.active_fill_color = s.fill_color();
-                                        self.stroke_width = s.stroke_width();
+                                        if s.font_size().is_none() {
+                                            self.stroke_width = s.stroke_width();
+                                        }
                                         self.active_stroke_style = s.stroke_style();
                                         self.active_sloppiness = s.sloppiness();
                                         self.active_corner_style = s.corner_style();
                                         self.active_opacity = s.opacity();
+                                        if let Some(fs) = s.font_size() {
+                                            self.active_font_size = fs;
+                                        }
                                     }
 
                                     let initial_shapes: Vec<(usize, Box<dyn Drawable>)> = self
@@ -1621,31 +1626,57 @@ impl ApplicationHandler<AppEvent> for DrawApp {
                         }
                     }
                     KeyCode::Equal | KeyCode::NumpadAdd => {
-                        let mut modified = false;
+                        let mut original = Vec::new();
+                        let mut modified = Vec::new();
                         for &idx in &self.selected_indices {
                             if let Some(shape) = self.canvas.shape_mut(idx)
                                 && let Some(fs) = shape.font_size()
                             {
+                                let orig_box = shape.clone_box();
                                 shape.set_font_size((fs * 1.2).round());
-                                modified = true;
+                                if shape.font_size() != Some(fs) {
+                                    original.push((idx, orig_box));
+                                    modified.push((idx, shape.clone_box()));
+                                }
                             }
                         }
-                        if modified && let Some(w) = &self.window {
-                            w.request_redraw();
+                        if !original.is_empty() {
+                            if let Some(first_mod) = modified.first()
+                                && let Some(new_fs) = first_mod.1.font_size()
+                            {
+                                self.active_font_size = new_fs;
+                            }
+                            self.canvas.commit_transform(original, modified);
+                            if let Some(w) = &self.window {
+                                w.request_redraw();
+                            }
                         }
                     }
                     KeyCode::Minus | KeyCode::NumpadSubtract => {
-                        let mut modified = false;
+                        let mut original = Vec::new();
+                        let mut modified = Vec::new();
                         for &idx in &self.selected_indices {
                             if let Some(shape) = self.canvas.shape_mut(idx)
                                 && let Some(fs) = shape.font_size()
                             {
+                                let orig_box = shape.clone_box();
                                 shape.set_font_size((fs / 1.2).round());
-                                modified = true;
+                                if shape.font_size() != Some(fs) {
+                                    original.push((idx, orig_box));
+                                    modified.push((idx, shape.clone_box()));
+                                }
                             }
                         }
-                        if modified && let Some(w) = &self.window {
-                            w.request_redraw();
+                        if !original.is_empty() {
+                            if let Some(first_mod) = modified.first()
+                                && let Some(new_fs) = first_mod.1.font_size()
+                            {
+                                self.active_font_size = new_fs;
+                            }
+                            self.canvas.commit_transform(original, modified);
+                            if let Some(w) = &self.window {
+                                w.request_redraw();
+                            }
                         }
                     }
                     KeyCode::Escape => {
