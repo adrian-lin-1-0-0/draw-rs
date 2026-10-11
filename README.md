@@ -94,7 +94,7 @@ When solving algorithmic problems on LeetCode, Codeforces, or during technical w
 
 | Feature | Technical Implementation & Highlights |
 | :--- | :--- |
-| **Native Zero-Alpha Transparency** | Built on macOS `NSWindow` & `CALayer` composited via Quartz, and Linux `softbuffer` on X11 / Wayland compositors. Alpha = 0 with zero black artifacts. |
+| **Native Zero-Alpha Transparency** | Built on macOS `NSWindow` & `CALayer` composited via Quartz, and Linux native `Argb8888` Wayland SHM / 32-bit X11 composited overlays. Alpha = 0 with zero black artifacts. |
 | **Global Click-Through Toggle** | Powered by native OS event filtering (`setIgnoresMouseEvents:` on macOS, `set_cursor_hittest` on Linux). A background listener captures <kbd>F1</kbd> globally even when unfocused. |
 | **Interactive Floating Menu HUD** | Translucent HUD with clickable tool buttons, color swatches, quick actions (Undo/Clear/Pass-thru), and drag-to-reposition support across all modes. |
 | **Draggable HUD in Click-Through Mode** | Real-time coordinate hit-testing dynamically re-enables clicking and dragging on the HUD card even in click-through mode without interrupting background app usage. |
@@ -178,7 +178,7 @@ cmd + shift - d : ~/.cargo/bin/draw-rs
 
 ### 1. How Transparency Works
 - **macOS (True Alpha Quartz Compositing)**: `draw-rs` sets native window transparency (Alpha = 0) and utilizes `objc2-app-kit`, `objc2-core-graphics`, and `objc2-quartz-core` to present premultiplied RGBA buffers (`PremultipliedLast`) directly to the window's `CALayer`. Bypasses cross-platform buffer backends that hardcode opaque flags (`NoneSkipFirst`).
-- **Linux (Composited Zero-Alpha Blitting)**: Uses `softbuffer` and `winit` to blit premultiplied pixels onto X11/Wayland windows. An active compositor (e.g. Picom on X11, or native Wayland) enables full hardware-blended transparency.
+- **Linux (Composited Zero-Alpha Blitting)**: Uses native `wl_shm::Format::Argb8888` on Wayland (e.g. GNOME Mutter, KDE KWin, Sway) and 32-bit ARGB visual blitting on X11 (e.g. Picom) to present premultiplied alpha pixels without solid black box artifacts.
 - **Privacy-Safe (No Screen Capture)**: `draw-rs` is a genuine floating overlay. It **does not capture, record, or inspect your screen content**.
 
 ---
@@ -228,7 +228,7 @@ graph TD
     App --> Renderer[CanvasRenderer: tiny-skia]
     App --> Platform[WindowPlatformController Trait]
     Platform --> MacosPlatform[MacosPlatformController: objc2 & CALayer]
-    Platform --> LinuxPlatform[LinuxPlatformController: softbuffer X11/Wayland]
+    Platform --> LinuxPlatform[LinuxPlatformController: Native Wayland Argb8888 / X11]
 ```
 
 ### Module Responsibilities
@@ -252,7 +252,7 @@ src/
 │   ├── mod.rs            # WindowPlatformController Trait & PlatformError
 │   ├── keymap.rs         # PlatformKeymap Trait, MacosKeymap, and LinuxKeymap
 │   ├── macos.rs          # MacosPlatformController (encapsulates unsafe Objective-C calls)
-│   ├── linux.rs          # LinuxPlatformController (softbuffer X11/Wayland presentation & window state)
+│   ├── linux.rs          # LinuxPlatformController (Native Wayland Argb8888 SHM / X11 presentation & window state)
 │   └── dummy.rs          # DummyPlatformController (testing fallback)
 ├── render/               # Rasterization & Surface Presentation (SRP)
 │   ├── mod.rs

@@ -94,7 +94,7 @@ cargo run --release
 
 | 功能特點 | 技術實現與優勢 |
 | :--- | :--- |
-| **原生透明無邊框** | 基於 macOS `NSWindow` 與 `CALayer` (Quartz 合成) 及 Linux `softbuffer` (X11 / Wayland 合成)，背景 Alpha = 0，無任何黑邊或延遲。 |
+| **原生透明無邊框** | 基於 macOS `NSWindow` 與 `CALayer` (Quartz 合成) 及 Linux 原生 `Argb8888` Wayland SHM / 32-bit X11 合成疊層，背景 Alpha = 0，無任何黑邊或延遲。 |
 | **全域滑鼠穿透開關** | 透過原生作業系統視窗屬性 (`setIgnoresMouseEvents:` / `set_cursor_hittest`)，搭配獨立背景執行緒捕捉全域 <kbd>F1</kbd>，無焦點時依然能秒切模式。 |
 | **互動式懸浮功能面板 HUD** | 毛玻璃半透明面板，提供點選切換工具、色票調色盤、快速操作（Undo/Clear/穿透），所有模式下皆可隨意拖曳位置。 |
 | **穿透模式下依然可拖曳面板** | 即時座標碰撞偵測（Hit-testing），即便處於滑鼠穿透模式，滑鼠移至 HUD 卡片上方仍可靈活拖曳，不干擾底層應用程式操作。 |
@@ -178,7 +178,7 @@ cmd + shift - d : ~/.cargo/bin/draw-rs
 
 ### 1. 為什麼背景能真正 100% 透明穿透？
 - **macOS（Quartz 原生合成）**：`draw-rs` 採用原生視窗透明屬性（Native Alpha = 0），透過 `objc2-app-kit`、`objc2-core-graphics` 與 `objc2-quartz-core` 直接將 `tiny-skia` 預乘 Alpha 像素緩衝區 (`PremultipliedLast`) 交付 macOS 系統級 **Quartz Compositor** 合成，徹底免除傳統 cross-platform buffer 函式庫產生的全黑畫面瑕疵。
-- **Linux（合成器零黑邊渲染）**：透過 `softbuffer` 與 `winit` 將預乘 Alpha 像素即時呈現至 X11 / Wayland 視窗。在啟用合成管理器（如 X11 上的 Picom 或原生 Wayland 合成器）環境下可達成 100% 硬體混合透明度。
+- **Linux（合成器零黑邊渲染）**：在 Wayland 下採用原生 `wl_shm::Format::Argb8888` 雙緩衝共用記憶體，在 X11 下採用 32-bit ARGB 視覺呈現，將預乘 Alpha 像素即時呈現至視窗。在啟用合成管理器（如 Ubuntu 預設 Wayland 或 X11 上的 Picom）環境下達成 100% 硬體混合透明度。
 - **純浮動不偷取隱私**：`draw-rs` 是純粹懸浮於所有視窗上方的畫布，**完全不需要、也不會抓取您的螢幕畫面**。
 
 ---
@@ -227,7 +227,7 @@ graph TD
     App --> Renderer[CanvasRenderer: tiny-skia 向量光柵化]
     App --> Platform[WindowPlatformController 平台抽象]
     Platform --> MacosPlatform[MacosPlatformController: objc2 & CALayer]
-    Platform --> LinuxPlatform[LinuxPlatformController: softbuffer X11/Wayland]
+    Platform --> LinuxPlatform[LinuxPlatformController: 原生 Wayland Argb8888 / X11]
 ```
 
 ### 模組目錄職責劃分
@@ -251,7 +251,7 @@ src/
 │   ├── mod.rs            # WindowPlatformController Trait & PlatformError
 │   ├── keymap.rs         # PlatformKeymap Trait、MacosKeymap 與 LinuxKeymap
 │   ├── macos.rs          # MacosPlatformController (完全封裝 unsafe Objective-C 指針操作)
-│   ├── linux.rs          # LinuxPlatformController (softbuffer X11/Wayland 光柵呈現與視窗狀態)
+│   ├── linux.rs          # LinuxPlatformController (原生 Wayland Argb8888 SHM / X11 光柵呈現與視窗狀態)
 │   └── dummy.rs          # DummyPlatformController (無頭測試降級實作)
 ├── render/               # 向量光柵化緩衝區與 UI 繪製 (SRP)
 │   ├── mod.rs

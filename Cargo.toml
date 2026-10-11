@@ -20,3 +20,10 @@ objc2-core-foundation = "0.3.2"
 objc2-core-graphics = "0.3.2"
 objc2-foundation = "0.3.2"
 objc2-quartz-core = "0.3.2"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+memmap2 = "0.9"
+rustix = { version = "1.0", features = ["fs", "shm"] }
+wayland-backend = { version = "0.3", features = ["client_system"] }
+wayland-client = "0.31"
+
