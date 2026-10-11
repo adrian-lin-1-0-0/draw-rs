@@ -379,6 +379,19 @@ fn test_inspector_hud_hit_testing_and_rendering() {
         InspectorHitTarget::Delete
     );
 
+    // Quick Actions Copy & Paste test
+    let copy_point = Point2D::new(inspector_pos.x + 50.0, inspector_pos.y + 325.0);
+    assert_eq!(
+        InspectorOverlay::hit_test(inspector_pos, copy_point, scale),
+        InspectorHitTarget::Copy
+    );
+
+    let paste_point = Point2D::new(inspector_pos.x + 160.0, inspector_pos.y + 325.0);
+    assert_eq!(
+        InspectorOverlay::hit_test(inspector_pos, paste_point, scale),
+        InspectorHitTarget::Paste
+    );
+
     // Render inspector onto pixmap (English)
     let mut pixmap = Pixmap::new(300, 750).unwrap();
     let params = InspectorRenderParams {
@@ -472,4 +485,122 @@ fn test_canvas_pan_and_text_interactive_input() {
     let rect_bb = canvas.shape(1).unwrap().bounding_box().unwrap();
     assert_eq!(rect_bb.min_x, 130.0);
     assert_eq!(rect_bb.min_y, 80.0);
+}
+
+#[test]
+fn test_canvas_copy_and_paste() {
+    let mut canvas = CanvasController::new();
+    assert!(!canvas.has_clipboard());
+    assert_eq!(canvas.clipboard_count(), 0);
+
+    // Paste with empty clipboard should do nothing
+    let pasted_empty = canvas.paste(Point2D::new(20.0, 20.0));
+    assert!(pasted_empty.is_empty());
+
+    // Add shapes to canvas
+    let rect = RectangleShape::new(
+        Point2D::new(50.0, 50.0),
+        100.0,
+        60.0,
+        Color::from_rgba8(255, 0, 0, 255),
+        None,
+        2.0,
+    );
+    let text = TextShape::new(
+        Point2D::new(200.0, 200.0),
+        "Copy Me",
+        24.0,
+        Color::from_rgba8(0, 255, 0, 255),
+    );
+    canvas.push_shape(Box::new(rect));
+    canvas.push_shape(Box::new(text));
+    assert_eq!(canvas.shape_count(), 2);
+
+    // 1. Copy selected shapes (both index 0 and 1)
+    let copied_count = canvas.copy_selected(&[0, 1]);
+    assert_eq!(copied_count, 2);
+    assert!(canvas.has_clipboard());
+    assert_eq!(canvas.clipboard_count(), 2);
+
+    // 2. First Paste: offset by (20.0, 20.0) * 1 = (20.0, 20.0)
+    let new_indices_1 = canvas.paste(Point2D::new(20.0, 20.0));
+    assert_eq!(new_indices_1, vec![2, 3]);
+    assert_eq!(canvas.shape_count(), 4);
+
+    let pasted_rect_bb = canvas.shape(2).unwrap().bounding_box().unwrap();
+    assert_eq!(pasted_rect_bb.min_x, 70.0);
+    assert_eq!(pasted_rect_bb.min_y, 70.0);
+
+    assert_eq!(canvas.shape(3).unwrap().text_content(), Some("Copy Me"));
+
+    // 3. Second Paste: offset by (20.0, 20.0) * 2 = (40.0, 40.0) from original
+    let new_indices_2 = canvas.paste(Point2D::new(20.0, 20.0));
+    assert_eq!(new_indices_2, vec![4, 5]);
+    assert_eq!(canvas.shape_count(), 6);
+
+    let pasted_rect_bb2 = canvas.shape(4).unwrap().bounding_box().unwrap();
+    assert_eq!(pasted_rect_bb2.min_x, 90.0);
+    assert_eq!(pasted_rect_bb2.min_y, 90.0);
+
+    // 4. Undo the second paste
+    assert!(canvas.undo());
+    assert_eq!(canvas.shape_count(), 4);
+
+    // 5. Redo the second paste
+    assert!(canvas.redo());
+    assert_eq!(canvas.shape_count(), 6);
+}
+
+#[test]
+fn test_text_enlargement_beyond_previous_limit() {
+    // 1. Verify text shape can be instantiated with large font size (> 120.0)
+    let mut large_text = TextShape::new(
+        Point2D::new(10.0, 10.0),
+        "Huge Header",
+        250.0,
+        Color::from_rgba8(255, 255, 255, 255),
+    );
+    assert_eq!(large_text.font_size, 250.0);
+    assert_eq!(large_text.font_size(), Some(250.0));
+
+    // 2. Test enlargement via resize handles from old bounds to 2x larger bounds
+    let old_bounds = large_text.bounding_box().unwrap();
+    let new_bounds = Rect2D::from_xywh(
+        old_bounds.min_x,
+        old_bounds.min_y,
+        old_bounds.width() * 2.0,
+        old_bounds.height() * 2.0,
+    );
+    large_text.resize(old_bounds, new_bounds);
+    assert!((large_text.font_size - 500.0).abs() < 1.0);
+
+    // 3. Scale up to maximum limit (1000.0)
+    let old_b2 = large_text.bounding_box().unwrap();
+    let new_b2 = Rect2D::from_xywh(
+        old_b2.min_x,
+        old_b2.min_y,
+        old_b2.width() * 3.0,
+        old_b2.height() * 3.0,
+    );
+    large_text.resize(old_b2, new_b2);
+    assert_eq!(large_text.font_size, 1000.0); // clamped at MAX_FONT_SIZE (1000.0)
+
+    // 4. Test horizontal resizing also scales font size
+    let old_b3 = large_text.bounding_box().unwrap();
+    let new_b3 = Rect2D::from_xywh(
+        old_b3.min_x,
+        old_b3.min_y,
+        old_b3.width() * 0.5,
+        old_b3.height(),
+    );
+    large_text.resize(old_b3, new_b3);
+    assert!((large_text.font_size - 500.0).abs() < 1.0);
+
+    // 5. Verify stroke_width setting (e.g. from general color/style change) does not crush font size
+    large_text.set_stroke_width(2.5);
+    assert_eq!(large_text.font_size, 500.0);
+
+    // 6. Test set_font_size method
+    large_text.set_font_size(600.0);
+    assert_eq!(large_text.font_size, 600.0);
 }

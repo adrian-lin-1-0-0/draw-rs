@@ -28,6 +28,8 @@ pub struct CanvasController {
     shapes: Vec<Box<dyn Drawable>>,
     action_history: Vec<CanvasAction>,
     redo_history: Vec<CanvasAction>,
+    clipboard: Vec<Box<dyn Drawable>>,
+    paste_count: usize,
 }
 
 impl Default for CanvasController {
@@ -42,6 +44,8 @@ impl CanvasController {
             shapes: Vec::new(),
             action_history: Vec::new(),
             redo_history: Vec::new(),
+            clipboard: Vec::new(),
+            paste_count: 0,
         }
     }
 
@@ -292,6 +296,63 @@ impl CanvasController {
         self.redo_history.clear();
 
         new_indices
+    }
+
+    /// Copies selected shapes to the internal clipboard.
+    /// Resets consecutive paste counter.
+    pub fn copy_selected(&mut self, indices: &[usize]) -> usize {
+        if indices.is_empty() {
+            return 0;
+        }
+        self.clipboard = indices
+            .iter()
+            .filter_map(|&idx| self.shapes.get(idx).map(|s| s.clone_box()))
+            .collect();
+        self.paste_count = 1;
+        self.clipboard.len()
+    }
+
+    /// Pastes shapes from the clipboard onto the canvas with an offset.
+    /// Each consecutive paste increments the offset by `offset_per_paste`.
+    /// Returns the indices of the newly added pasted shapes.
+    pub fn paste(&mut self, offset_per_paste: Point2D) -> Vec<usize> {
+        if self.clipboard.is_empty() {
+            return Vec::new();
+        }
+
+        let step = self.paste_count.max(1) as f32;
+        let offset = Point2D::new(offset_per_paste.x * step, offset_per_paste.y * step);
+        self.paste_count = self.paste_count.saturating_add(1);
+
+        let mut cloned_shapes = Vec::new();
+        let mut new_indices = Vec::new();
+
+        for shape in &self.clipboard {
+            let mut cloned = shape.clone_box();
+            cloned.translate(offset);
+            new_indices.push(self.shapes.len() + cloned_shapes.len());
+            cloned_shapes.push(cloned);
+        }
+
+        for s in &cloned_shapes {
+            self.shapes.push(s.clone_box());
+        }
+
+        self.action_history
+            .push(CanvasAction::DrawBatch(cloned_shapes));
+        self.redo_history.clear();
+
+        new_indices
+    }
+
+    /// Returns whether the clipboard has shapes.
+    pub fn has_clipboard(&self) -> bool {
+        !self.clipboard.is_empty()
+    }
+
+    /// Returns the number of shapes currently in the clipboard.
+    pub fn clipboard_count(&self) -> usize {
+        self.clipboard.len()
     }
 
     /// Deletes shapes at `indices` and commits to undo history.

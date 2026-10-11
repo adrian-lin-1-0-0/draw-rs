@@ -63,4 +63,6 @@ properties:
   actions: "Quick Actions"
   action_duplicate: "Duplicate [Cmd+D]"
   action_delete: "Delete [Del]"
+  action_copy: "Copy [Cmd+C]"
+  action_paste: "Paste [Cmd+V]"
   btn_properties: "Properties"

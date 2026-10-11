@@ -86,6 +86,14 @@ fn default_text() -> String {
     "Text[T]".to_string()
 }
 
+fn default_action_copy() -> String {
+    "Copy [Cmd+C]".to_string()
+}
+
+fn default_action_paste() -> String {
+    "Paste [Cmd+V]".to_string()
+}
+
 #[derive(Debug, Clone, Deserialize)]
 pub struct PropertiesStrings {
     pub title: String,
@@ -109,6 +117,10 @@ pub struct PropertiesStrings {
     pub actions: String,
     pub action_duplicate: String,
     pub action_delete: String,
+    #[serde(default = "default_action_copy")]
+    pub action_copy: String,
+    #[serde(default = "default_action_paste")]
+    pub action_paste: String,
     pub btn_properties: String,
 }
 

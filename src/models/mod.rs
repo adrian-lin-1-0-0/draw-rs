@@ -103,6 +103,11 @@ pub trait Drawable: Send + Sync {
         None
     }
     fn set_text_content(&mut self, _text: String) {}
+
+    fn font_size(&self) -> Option<f32> {
+        None
+    }
+    fn set_font_size(&mut self, _size: f32) {}
 }
 
 impl Clone for Box<dyn Drawable> {

@@ -964,6 +964,23 @@ impl ApplicationHandler<AppEvent> for DrawApp {
                                     }
                                     return;
                                 }
+                                InspectorHitTarget::Copy => {
+                                    self.canvas.copy_selected(&self.selected_indices);
+                                    if let Some(w) = &self.window {
+                                        w.request_redraw();
+                                    }
+                                    return;
+                                }
+                                InspectorHitTarget::Paste => {
+                                    let new_indices = self.canvas.paste(Point2D::new(20.0, 20.0));
+                                    if !new_indices.is_empty() {
+                                        self.selected_indices = new_indices;
+                                    }
+                                    if let Some(w) = &self.window {
+                                        w.request_redraw();
+                                    }
+                                    return;
+                                }
                                 InspectorHitTarget::Duplicate => {
                                     self.selected_indices = self.canvas.duplicate(
                                         &self.selected_indices,
@@ -1442,7 +1459,17 @@ impl ApplicationHandler<AppEvent> for DrawApp {
                         return;
                     }
 
-                    if let Some(text_str) = text.as_deref() {
+                    if (self.modifiers.super_key() || self.modifiers.control_key())
+                        && key == KeyCode::KeyC
+                    {
+                        self.canvas.copy_selected(&[shape_idx]);
+                        return;
+                    }
+
+                    if let Some(text_str) = text.as_deref()
+                        && !self.modifiers.super_key()
+                        && !self.modifiers.control_key()
+                    {
                         let filtered: String = text_str
                             .chars()
                             .filter(|&c| c >= ' ' || c == '\t')
@@ -1478,8 +1505,15 @@ impl ApplicationHandler<AppEvent> for DrawApp {
                         }
                     }
                     KeyCode::KeyV => {
-                        self.commit_text_editing();
-                        self.tool = DrawingTool::Selection;
+                        if self.modifiers.super_key() || self.modifiers.control_key() {
+                            let new_indices = self.canvas.paste(Point2D::new(20.0, 20.0));
+                            if !new_indices.is_empty() {
+                                self.selected_indices = new_indices;
+                            }
+                        } else {
+                            self.commit_text_editing();
+                            self.tool = DrawingTool::Selection;
+                        }
                         if let Some(w) = &self.window {
                             w.set_cursor(self.default_cursor_for_tool());
                             w.request_redraw();
@@ -1502,7 +1536,7 @@ impl ApplicationHandler<AppEvent> for DrawApp {
                         }
                     }
                     KeyCode::KeyD => {
-                        if self.modifiers.super_key() {
+                        if self.modifiers.super_key() || self.modifiers.control_key() {
                             self.selected_indices = self
                                 .canvas
                                 .duplicate(&self.selected_indices, Point2D::new(20.0, 20.0));
@@ -1557,7 +1591,9 @@ impl ApplicationHandler<AppEvent> for DrawApp {
                         }
                     }
                     KeyCode::KeyZ => {
-                        if self.modifiers.super_key() && self.modifiers.shift_key() {
+                        if (self.modifiers.super_key() || self.modifiers.control_key())
+                            && self.modifiers.shift_key()
+                        {
                             self.canvas.redo();
                         } else {
                             self.canvas.undo();
@@ -1574,9 +1610,41 @@ impl ApplicationHandler<AppEvent> for DrawApp {
                         }
                     }
                     KeyCode::KeyC => {
-                        self.canvas.clear();
-                        self.selected_indices.clear();
+                        if self.modifiers.super_key() || self.modifiers.control_key() {
+                            self.canvas.copy_selected(&self.selected_indices);
+                        } else {
+                            self.canvas.clear();
+                            self.selected_indices.clear();
+                        }
                         if let Some(w) = &self.window {
+                            w.request_redraw();
+                        }
+                    }
+                    KeyCode::Equal | KeyCode::NumpadAdd => {
+                        let mut modified = false;
+                        for &idx in &self.selected_indices {
+                            if let Some(shape) = self.canvas.shape_mut(idx)
+                                && let Some(fs) = shape.font_size()
+                            {
+                                shape.set_font_size((fs * 1.2).round());
+                                modified = true;
+                            }
+                        }
+                        if modified && let Some(w) = &self.window {
+                            w.request_redraw();
+                        }
+                    }
+                    KeyCode::Minus | KeyCode::NumpadSubtract => {
+                        let mut modified = false;
+                        for &idx in &self.selected_indices {
+                            if let Some(shape) = self.canvas.shape_mut(idx)
+                                && let Some(fs) = shape.font_size()
+                            {
+                                shape.set_font_size((fs / 1.2).round());
+                                modified = true;
+                            }
+                        }
+                        if modified && let Some(w) = &self.window {
                             w.request_redraw();
                         }
                     }
