@@ -1,3 +1,4 @@
+use draw_rs::WindowPlatformController;
 use draw_rs::app::{AppEvent, DrawApp};
 #[cfg(not(target_os = "macos"))]
 use draw_rs::platform::DummyPlatformController;
@@ -10,6 +11,14 @@ use global_hotkey::{
 use winit::event_loop::{ControlFlow, EventLoop};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // 1. Dependency Inversion: Inject concrete platform controller into DrawApp
+    #[cfg(target_os = "macos")]
+    let platform = Box::new(MacosPlatformController::new());
+    #[cfg(not(target_os = "macos"))]
+    let platform = Box::new(DummyPlatformController::new());
+
+    let keymap = platform.keymap();
+
     println!("============================================================");
     println!("      draw-rs: macOS LeetCode Transparent Doodle Board      ");
     println!("============================================================");
@@ -19,8 +28,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("  [E]         : Switch directly to Eraser (橡皮擦)");
     println!("  [P]         : Switch directly to Pen (手繪筆)");
     println!("  [1 - 5]     : Switch Colors (Cyan, Emerald, Coral, Amber, Violet)");
-    println!("  [Cmd/Ctrl+C / V] : Copy & Paste selected shapes (複製 / 貼上)");
-    println!("  [Cmd/Ctrl+D]     : Duplicate selected shapes (再製)");
+    println!(
+        "  [{}] : Copy & Paste selected shapes (複製 / 貼上)",
+        keymap.format_shortcut("C / V")
+    );
+    println!(
+        "  [{}]     : Duplicate selected shapes (再製)",
+        keymap.format_shortcut("D")
+    );
     println!("  [Z]         : Undo last action (Draw, Erase, Clear)");
     println!("  [C]         : Clear all doodles");
     println!("  [Esc]       : Exit application");
@@ -33,13 +48,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("    (System Settings -> Privacy & Security -> Accessibility)");
     println!("============================================================");
 
-    // 1. Initialize event loop with custom AppEvent support
+    // 2. Initialize event loop with custom AppEvent support
     let event_loop: EventLoop<AppEvent> = EventLoop::with_user_event().build()?;
     event_loop.set_control_flow(ControlFlow::Wait);
 
     let proxy = event_loop.create_proxy();
 
-    // 2. Setup global hotkey for F1 (allowing mode toggling while unfocused / clicking through)
+    // 3. Setup global hotkey for F1 (allowing mode toggling while unfocused / clicking through)
     let hotkey_manager = GlobalHotKeyManager::new()?;
     let hotkey_f1 = HotKey::new(None, Code::F1);
     hotkey_manager.register(hotkey_f1)?;
@@ -54,11 +69,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     });
 
-    // 3. Dependency Inversion: Inject concrete platform controller into DrawApp
-    #[cfg(target_os = "macos")]
-    let platform = Box::new(MacosPlatformController::new());
-    #[cfg(not(target_os = "macos"))]
-    let platform = Box::new(DummyPlatformController::new());
     let mut app = DrawApp::new(platform);
 
     // 4. Run application event loop

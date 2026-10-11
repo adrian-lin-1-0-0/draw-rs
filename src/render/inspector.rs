@@ -33,6 +33,7 @@ pub struct InspectorRenderParams {
     pub stroke_width: f32,
     pub stroke_style: StrokeStyle,
     pub language: AppLanguage,
+    pub primary_modifier: &'static str,
 }
 
 /// Left-side floating Inspector HUD panel for real-time shape attribute customization.
@@ -475,6 +476,10 @@ impl InspectorOverlay {
         );
         let act_btn_w = (card_w - 28.0 * ui_scale) / 2.0;
 
+        let act_duplicate_str = params.language.action_duplicate(params.primary_modifier);
+        let act_copy_str = params.language.action_copy(params.primary_modifier);
+        let act_paste_str = params.language.action_paste(params.primary_modifier);
+
         // Row 1: Duplicate, Delete
         render_segment_button(
             pixmap,
@@ -482,7 +487,7 @@ impl InspectorOverlay {
             pos.y + 288.0 * ui_scale,
             act_btn_w - 4.0 * ui_scale,
             24.0 * ui_scale,
-            &props.action_duplicate,
+            &act_duplicate_str,
             false,
             ui_scale,
         );
@@ -504,7 +509,7 @@ impl InspectorOverlay {
             pos.y + 318.0 * ui_scale,
             act_btn_w - 4.0 * ui_scale,
             24.0 * ui_scale,
-            &props.action_copy,
+            &act_copy_str,
             false,
             ui_scale,
         );
@@ -514,7 +519,7 @@ impl InspectorOverlay {
             pos.y + 318.0 * ui_scale,
             act_btn_w - 4.0 * ui_scale,
             24.0 * ui_scale,
-            &props.action_paste,
+            &act_paste_str,
             false,
             ui_scale,
         );

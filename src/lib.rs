@@ -11,11 +11,13 @@ pub use models::{
     RectangleShape, RoughGenerator, Sloppiness, StrokeShape, StrokeStyle, TextShape,
     TransformHandle,
 };
-#[cfg(not(target_os = "macos"))]
 pub use platform::DummyPlatformController;
 #[cfg(target_os = "macos")]
 pub use platform::MacosPlatformController;
-pub use platform::WindowPlatformController;
+pub use platform::{
+    LinuxKeymap, MacosKeymap, PlatformKeymap, ShortcutAction, WindowPlatformController,
+    default_platform_keymap,
+};
 pub use render::{
     BitmapFont, CanvasRenderer, HudHitTarget, HudOverlay, HudRenderParams, InspectorHitTarget,
     InspectorOverlay, InspectorRenderParams, SelectionRenderer,

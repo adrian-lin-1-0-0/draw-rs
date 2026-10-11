@@ -1,9 +1,11 @@
 use draw_rs::{
-    AppLanguage, ArrowShape, CanvasController, CircleShape, CornerStyle, DiamondShape, Drawable,
-    InspectorHitTarget, InspectorOverlay, InspectorRenderParams, LineShape, Point2D, Rect2D,
-    RectangleShape, SelectionRenderer, Sloppiness, StrokeStyle, TextShape, TransformHandle,
+    AppLanguage, ArrowShape, CanvasController, CircleShape, CornerStyle, DiamondShape, DrawApp,
+    Drawable, DummyPlatformController, InspectorHitTarget, InspectorOverlay, InspectorRenderParams,
+    LineShape, LinuxKeymap, MacosKeymap, PlatformKeymap, Point2D, Rect2D, RectangleShape,
+    SelectionRenderer, ShortcutAction, Sloppiness, StrokeStyle, TextShape, TransformHandle,
 };
 use tiny_skia::{Color, Pixmap};
+use winit::keyboard::{KeyCode, ModifiersState};
 
 #[test]
 fn test_rectangle_shape_geometry_and_rough_rendering() {
@@ -415,6 +417,7 @@ fn test_inspector_hud_hit_testing_and_rendering() {
         stroke_width: 3.5,
         stroke_style: StrokeStyle::Solid,
         language: AppLanguage::En,
+        primary_modifier: "Cmd",
     };
     InspectorOverlay::render(&mut pixmap, &params, scale, inspector_pos);
     assert!(pixmap.pixels().iter().any(|p| p.alpha() > 0));
@@ -648,4 +651,68 @@ fn test_text_font_size_scaling_undoable() {
     // Redo should restore 24.0
     assert!(canvas.redo());
     assert_eq!(canvas.shape(0).unwrap().font_size(), Some(24.0));
+}
+
+#[test]
+fn test_platform_keymap_macos_and_linux_abstraction() {
+    let mac = MacosKeymap;
+    assert_eq!(mac.primary_modifier_name(), "Cmd");
+    assert_eq!(mac.format_shortcut("C"), "Cmd+C");
+    assert_eq!(mac.format_template("Copy [{cmd}+C]"), "Copy [Cmd+C]");
+
+    let lin = LinuxKeymap;
+    assert_eq!(lin.primary_modifier_name(), "Ctrl");
+    assert_eq!(lin.format_shortcut("C"), "Ctrl+C");
+    assert_eq!(lin.format_template("Copy [{cmd}+C]"), "Copy [Ctrl+C]");
+
+    // Modifier matching tests
+    let mut ctrl_mod = ModifiersState::empty();
+    ctrl_mod.insert(ModifiersState::CONTROL);
+
+    let mut super_mod = ModifiersState::empty();
+    super_mod.insert(ModifiersState::SUPER);
+
+    let mut ctrl_shift = ModifiersState::empty();
+    ctrl_shift.insert(ModifiersState::CONTROL);
+    ctrl_shift.insert(ModifiersState::SHIFT);
+
+    let mut super_shift = ModifiersState::empty();
+    super_shift.insert(ModifiersState::SUPER);
+    super_shift.insert(ModifiersState::SHIFT);
+
+    // macOS matches Super for Copy
+    assert!(mac.matches_action(ShortcutAction::Copy, &super_mod, KeyCode::KeyC));
+    assert!(mac.matches_action(ShortcutAction::Redo, &super_shift, KeyCode::KeyZ));
+
+    // Linux matches Control for Copy
+    assert!(lin.matches_action(ShortcutAction::Copy, &ctrl_mod, KeyCode::KeyC));
+    assert!(!lin.matches_action(ShortcutAction::Copy, &super_mod, KeyCode::KeyC));
+
+    // Linux matches both Ctrl+Shift+Z and Ctrl+Y for Redo
+    assert!(lin.matches_action(ShortcutAction::Redo, &ctrl_shift, KeyCode::KeyZ));
+    assert!(lin.matches_action(ShortcutAction::Redo, &ctrl_mod, KeyCode::KeyY));
+}
+
+#[test]
+fn test_app_language_action_labels_with_platform_modifier() {
+    assert_eq!(AppLanguage::En.action_copy("Cmd"), "Copy [Cmd+C]");
+    assert_eq!(AppLanguage::En.action_copy("Ctrl"), "Copy [Ctrl+C]");
+    assert_eq!(AppLanguage::En.action_duplicate("Cmd"), "Duplicate [Cmd+D]");
+    assert_eq!(AppLanguage::En.action_paste("Ctrl"), "Paste [Ctrl+V]");
+
+    assert_eq!(AppLanguage::ZhTw.action_copy("Cmd"), "複製 [Cmd+C]");
+    assert_eq!(AppLanguage::ZhTw.action_copy("Ctrl"), "複製 [Ctrl+C]");
+    assert_eq!(AppLanguage::ZhTw.action_duplicate("Cmd"), "再製 [Cmd+D]");
+    assert_eq!(AppLanguage::ZhTw.action_paste("Ctrl"), "貼上 [Ctrl+V]");
+}
+
+#[test]
+fn test_draw_app_with_injected_platform_keymap() {
+    let dummy = Box::new(DummyPlatformController::new());
+    let app_linux = DrawApp::with_keymap(dummy, Box::new(LinuxKeymap));
+    assert_eq!(app_linux.keymap().primary_modifier_name(), "Ctrl");
+
+    let dummy2 = Box::new(DummyPlatformController::new());
+    let app_mac = DrawApp::with_keymap(dummy2, Box::new(MacosKeymap));
+    assert_eq!(app_mac.keymap().primary_modifier_name(), "Cmd");
 }

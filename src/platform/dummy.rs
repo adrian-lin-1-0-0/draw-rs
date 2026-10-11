@@ -38,4 +38,8 @@ impl WindowPlatformController for DummyPlatformController {
     fn get_global_cursor_pos(&self, _window: &Window) -> Option<Point2D> {
         None
     }
+
+    fn keymap(&self) -> Box<dyn crate::platform::PlatformKeymap> {
+        Box::new(crate::platform::LinuxKeymap)
+    }
 }

@@ -194,4 +194,8 @@ impl WindowPlatformController for MacosPlatformController {
         let y_phys = (size.height as f64 - loc.y * scale) as f32;
         Some(Point2D::new(x_phys, y_phys))
     }
+
+    fn keymap(&self) -> Box<dyn crate::platform::PlatformKeymap> {
+        Box::new(crate::platform::MacosKeymap)
+    }
 }

@@ -87,11 +87,11 @@ fn default_text() -> String {
 }
 
 fn default_action_copy() -> String {
-    "Copy [Cmd/Ctrl+C]".to_string()
+    "Copy [{cmd}+C]".to_string()
 }
 
 fn default_action_paste() -> String {
-    "Paste [Cmd/Ctrl+V]".to_string()
+    "Paste [{cmd}+V]".to_string()
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -267,5 +267,29 @@ impl AppLanguage {
         } else {
             self.strings().properties.title_default.clone()
         }
+    }
+
+    /// Localized Duplicate action label formatted with platform primary modifier.
+    pub fn action_duplicate(&self, modifier: &str) -> String {
+        self.strings()
+            .properties
+            .action_duplicate
+            .replace("{cmd}", modifier)
+    }
+
+    /// Localized Copy action label formatted with platform primary modifier.
+    pub fn action_copy(&self, modifier: &str) -> String {
+        self.strings()
+            .properties
+            .action_copy
+            .replace("{cmd}", modifier)
+    }
+
+    /// Localized Paste action label formatted with platform primary modifier.
+    pub fn action_paste(&self, modifier: &str) -> String {
+        self.strings()
+            .properties
+            .action_paste
+            .replace("{cmd}", modifier)
     }
 }
