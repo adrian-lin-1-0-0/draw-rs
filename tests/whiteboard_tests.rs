@@ -510,10 +510,18 @@ fn test_canvas_copy_and_paste() {
     let mut canvas = CanvasController::new();
     assert!(!canvas.has_clipboard());
     assert_eq!(canvas.clipboard_count(), 0);
+    assert_eq!(canvas.paste_count(), 0);
+
+    // Copy with empty or invalid indices should not set paste_count to 1
+    assert_eq!(canvas.copy_selected(&[]), 0);
+    assert_eq!(canvas.paste_count(), 0);
+    assert_eq!(canvas.copy_selected(&[999]), 0);
+    assert_eq!(canvas.paste_count(), 0);
 
     // Paste with empty clipboard should do nothing
     let pasted_empty = canvas.paste(Point2D::new(20.0, 20.0));
     assert!(pasted_empty.is_empty());
+    assert_eq!(canvas.paste_count(), 0);
 
     // Add shapes to canvas
     let rect = RectangleShape::new(
@@ -567,6 +575,12 @@ fn test_canvas_copy_and_paste() {
     // 5. Redo the second paste
     assert!(canvas.redo());
     assert_eq!(canvas.shape_count(), 6);
+
+    // 6. Copy with non-existent indices resets clipboard and resets paste_count to 0
+    assert_eq!(canvas.copy_selected(&[9999]), 0);
+    assert!(!canvas.has_clipboard());
+    assert_eq!(canvas.clipboard_count(), 0);
+    assert_eq!(canvas.paste_count(), 0);
 }
 
 #[test]

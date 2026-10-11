@@ -327,8 +327,14 @@ impl CanvasController {
             .iter()
             .filter_map(|&idx| self.shapes.get(idx).map(|s| s.clone_box()))
             .collect();
-        self.paste_count = 1;
-        self.clipboard.len()
+
+        if self.clipboard.is_empty() {
+            self.paste_count = 0;
+            0
+        } else {
+            self.paste_count = 1;
+            self.clipboard.len()
+        }
     }
 
     /// Pastes shapes from the clipboard onto the canvas with an offset.
