@@ -40,9 +40,12 @@ src/
 │   ├── stroke.rs         # StrokeShape (freehand ink with quadratic Bézier curve smoothing)
 │   ├── circle.rs         # CircleShape (translucent nodes, raycasting and border hit-testing)
 │   └── arrow.rs          # ArrowShape (dynamic directional arrows, vector shaft and head calculations)
-├── platform/             # [Platform Interop] Native OS and AppKit abstraction (DIP & ISP)
+├── platform/             # [Platform Interop] Native OS and AppKit/X11/Wayland abstraction (DIP & ISP)
 │   ├── mod.rs            # WindowPlatformController trait & PlatformError
-│   └── macos.rs          # MacosPlatformController (encapsulates all unsafe Objective-C pointers)
+│   ├── keymap.rs         # PlatformKeymap trait, MacosKeymap, and LinuxKeymap
+│   ├── macos.rs          # MacosPlatformController (encapsulates all unsafe Objective-C pointers)
+│   ├── linux.rs          # LinuxPlatformController (native Wayland Argb8888 SHM / softbuffer X11 presentation & window state)
+│   └── dummy.rs          # DummyPlatformController (testing fallback)
 ├── render/               # [Rasterization & UI] Pixel rasterization and HUD rendering
 │   ├── mod.rs
 │   ├── font.rs           # Dynamic macOS CJK system font rasterizer (fontdue) with bitmap fallback
@@ -64,7 +67,7 @@ src/
   - Exclusively responsible for rasterizing abstract geometry and HUD components into `tiny-skia::Pixmap` pixel memory.
   - **Forbidden**: Handling event dispatching, undo history logic, or window lifecycles.
 - **`platform` module**:
-  - Exclusively responsible for native macOS window behavior (borderless, desktop pass-through, `NSFloatingWindowLevel`, `CALayer` blitting).
+  - Exclusively responsible for native window behavior (borderless, desktop pass-through, window levels, presentation blitting across macOS AppKit and Linux X11/Wayland).
   - **Forbidden**: Touching canvas drawing shapes, color palettes, or tool state.
 - **`controller` module**:
   - Exclusively responsible for managing drawing history (`CanvasAction` stack), offering `push_shape`, `erase_at`, `undo`, and `clear`.
@@ -86,8 +89,8 @@ src/
 - The platform abstraction (`WindowPlatformController`) is kept lean, exposing only the minimal windowing operations needed by the application without monolithic coupling.
 
 ### 3.4 Dependency Inversion Principle (DIP)
-- The high-level coordinator (`DrawApp`) depends strictly on abstractions (`WindowPlatformController` trait and `dyn Drawable`), rather than concrete macOS AppKit implementations.
-- **All `unsafe` Objective-C pointer operations must be strictly confined within `src/platform/macos.rs`** and never leak into outer layers.
+- The high-level coordinator (`DrawApp`) depends strictly on abstractions (`WindowPlatformController` trait and `dyn Drawable`), rather than concrete OS implementations.
+- **All unsafe pointer operations must be strictly confined within `src/platform/macos.rs` and `src/platform/linux.rs`** and never leak into outer layers.
 
 ### 3.5 Clean Code & Dead Code Prevention
 - **Eliminate Unused & Abandoned State**:

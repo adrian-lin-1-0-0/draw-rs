@@ -1,4 +1,4 @@
-# 🖋️ draw-rs: macOS 全螢幕透明演算法解題塗鴉板
+# 🖋️ draw-rs: macOS & Linux 全螢幕透明演算法解題塗鴉板
 
 <div align="center">
 
@@ -8,21 +8,24 @@
 
 [![Rust](https://img.shields.io/badge/Rust-2024_Edition-orange?logo=rust&logoColor=white)](https://www.rust-lang.org/)
 [![CI](https://github.com/adrian-lin-1-0-0/draw-rs/actions/workflows/ci.yml/badge.svg)](https://github.com/adrian-lin-1-0-0/draw-rs/actions/workflows/ci.yml)
-[![Platform](https://img.shields.io/badge/Platform-macOS_13%2B-black?logo=apple&logoColor=white)](https://apple.com/)
+[![Platform](https://img.shields.io/badge/Platform-macOS_%7C_Linux-black)](https://github.com/adrian-lin-1-0-0/draw-rs)
 [![Architecture](https://img.shields.io/badge/Architecture-SOLID_&_Idiomatic-blue)](https://en.wikipedia.org/wiki/SOLID)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-**專為 macOS 使用者打造的高效能透明螢幕塗鴉工具**  
+**專為 macOS 與 Linux 使用者打造的高效能透明螢幕塗鴉工具**  
 專門輔助在 **LeetCode 刷題**、**系統架構設計**、**白板編程面試** 與 **線上教學演練** 時即時繪製資料結構！
 
 <br />
 
 [實機展示](#-實機展示-demo-preview) •
-[功能亮點](#-核心功能特點) •
+[快速啟動](#-安裝與快速啟動) •
+[為什麼需要 draw-rs？](#-為什麼需要-draw-rs) •
+[核心功能](#-核心功能特點) •
 [快捷鍵操作](#-快捷鍵與操作指南) •
-[架構設計 (SOLID)](#-solid-軟體架構) •
-[快速啟動](#-快速啟動) •
-[macOS 權限設定](#-macos-系統權限配置指南)
+[快捷啟動設定](#-全域快捷鍵與快速啟動設定指南) •
+[系統與權限設定](#-系統配置與透明度指南) •
+[軟體架構 (SOLID)](#-solid-軟體架構) •
+[開源授權](#-開源授權-license)
 
 </div>
 
@@ -34,131 +37,6 @@
   <img src="./assets/demo.png" alt="draw-rs 實機展示截圖" width="850" />
   <p><em>即時在 LeetCode 題目與編輯器上方進行透明向量標記與資料結構解說</em></p>
 </div>
-
----
-
-## 💡 為什麼需要 draw-rs？
-
-在 LeetCode 或線上評測解題時，傳統的演算法草稿紙或外部白板繪圖軟體需要頻繁切換視窗，打斷思考。
-
-`draw-rs` 直接在您的 macOS 螢幕上方懸浮一個 **100% 原生透明的向量畫布**：
-- 🌲 **直接在 LeetCode 題目上方畫樹狀圖**（二元樹 Binary Tree、平衡樹 AVL）。
-- 🔀 **標記雙指針 (Two Pointers) 與滑動窗口 (Sliding Window)** 範圍。
-- 🔗 **標記鏈結串列指標 (`curr -> next`) 與有向圖路徑**。
-- ⚡ **一鍵切換穿透模式**：畫完指標結構後，按下 <kbd>F1</kbd> 滑鼠直接穿透視窗，無縫在下方 VS Code / 瀏覽器敲代碼，塗鴉內容依然懸浮指引！
-
----
-
-## 🌟 核心功能特點
-
-| 功能模組 | 技術實現與特色 |
-| :--- | :--- |
-| **原生透明無邊框** | 基於 macOS `NSWindow` 與 `CALayer`，背景 Alpha = 0，無任何黑邊或延遲。 |
-| **滑鼠穿透切換** | 透過現代型別安全庫 `objc2-app-kit` 調用 `setIgnoresMouseEvents:`，背景執行緒全域監聽 <kbd>F1</kbd>。 |
-| **互動式選單 HUD 面板** | 全新浮動面板設計，提供可直接以滑鼠點擊選取的工具按鈕、色盤色票、Undo/Clear 與穿透切換鍵，支援全域拖曳。 |
-| **滑鼠穿透模式可拖移與點選** | 實時座標碰撞檢測，在滑鼠穿透模式下將游標移至提示窗上方時動態解除穿透，可直接按住拖移面板或點擊選單，移出後自動恢復背景穿透。 |
-| **演算法工具與智慧橡皮擦** | 自由畫筆 (<kbd>P</kbd>)、節點圓形 (<kbd>Circle</kbd>)、指向箭頭 (<kbd>Arrow</kbd>) 與向量橡皮擦 (<kbd>E</kbd>)，支援即時擦除圈與可逆復原 (Undo)。 |
-| **演算法對比色盤** | 預設精選高對比高辨識色彩（天藍、翠綠、珊瑚紅、琥珀金、紫羅蘭），適合深淺主題。 |
-| **極致輕量與效能** | 純 CPU 2D 向量光柵化 (`tiny-skia`)，記憶體佔用極低，編譯單一二進位檔案僅約 1.4 MB。 |
-
----
-
-## ⌨️ 快捷鍵與操作指南
-
-```
-┌─────────────────────────────────────────────────────────────────────────────────┐
-│ ● 繪圖模式 (3 個圖形)             [切換穿透 F1]                      ::: 拖移  │
-│ ─────────────────────────────────────────────────────────────────────────────── │
-│ 工具: [畫筆 P] [節點] [箭頭] [橡皮擦 E]           [復原 Z]  [清除 C]            │
-│ ─────────────────────────────────────────────────────────────────────────────── │
-│ 顏色: (●) (●) (●) (●) (●)   [1-5]                                 [繁體中文 ▼] │
-└─────────────────────────────────────────────────────────────────────────────────┘
-```
-
-| 快捷鍵 / 滑鼠 | 動作 | 說明 |
-| :---: | :--- | :--- |
-| **點擊 HUD 選單按鈕** | **選取工具 / 顏色 / 動作** | 直接在浮動提示窗上點擊切換畫筆、形狀、橡皮擦、純色色票、復原、清空或穿透模式 |
-| **語言下拉選單** | **切換界面語系 (i18n)** | 點擊 HUD 上的 `繁體中文 ▼` 或 `English ▼` 展開下拉式選單切換語言（語系定義於 `locales/*.yaml`） |
-| **拖曳提示窗** | **移動 HUD 面板** | 按住提示窗面板頂部或背景並拖曳可移至螢幕任意位置（**繪圖模式**與**滑鼠穿透模式**皆可直接拖移！） |
-| <kbd>F1</kbd> | **模式切換 (全域)** | 於「繪圖模式」與「滑鼠穿透模式」之間切換（無焦點時依然生效） |
-| <kbd>F2</kbd> | **工具循環切換** | 循序循環：`畫筆 (Pen)` ➔ `節點 (Circle)` ➔ `箭頭 (Arrow)` ➔ `橡皮擦 (Eraser)` |
-| <kbd>E</kbd> | **橡皮擦 (Eraser)** | 快速切換至橡皮擦工具，顯示圓形擦除游標，滑鼠拖曳接觸即擦除圖形 |
-| <kbd>P</kbd> | **畫筆 (Pen)** | 快速切換回自由畫筆工具 |
-| <kbd>1</kbd> ~ <kbd>5</kbd> | **切換色盤顏色** | 純圓形色票：天藍 (Cyan)、翠綠 (Emerald)、珊瑚紅 (Coral)、琥珀金 (Amber)、紫羅蘭 (Violet) |
-| <kbd>L</kbd> | **切換語言快捷鍵** | 鍵盤快速循環切換語系（**繁體中文** / **English**） |
-| <kbd>Z</kbd> | **復原 (Undo)** | 復原上一個繪製圖形，或將被橡皮擦擦除的圖形原位復原 |
-| <kbd>C</kbd> | **清除 (Clear)** | 一鍵清空螢幕上所有筆記與圖形 |
-| <kbd>Esc</kbd> | **關閉選單 / 離開程式** | 關閉開啟中的下拉選單，若無開啟選單則退出程式 |
-
----
-
-## 🏗️ SOLID 軟體架構
-
-本專案嚴格貫徹物件導向 SOLID 原則與 Idiomatic Rust 設計模式：
-
-```mermaid
-graph TD
-    UserEvent[User Input / Global Hotkey F1] --> App[DrawApp Coordinator]
-    App --> StateMachine[AppMode & Tool State Machine]
-    App --> Controller[CanvasController: History Stack]
-    Controller --> Trait[<< trait >>\nDrawable]
-    Trait --> Stroke[StrokeShape: Bezier Ink]
-    Trait --> Circle[CircleShape: Translucent Node]
-    Trait --> Arrow[ArrowShape: Vector Pointer]
-    App --> Renderer[CanvasRenderer: tiny-skia]
-    App --> Platform[WindowPlatformController Trait]
-    Platform --> MacosPlatform[MacosPlatformController: objc2 & CALayer]
-```
-
-### 模組目錄職責劃分
-
-```text
-src/
-├── app/                  # Application 控制器與狀態機
-│   ├── mod.rs            # DrawApp (實作 winit 0.30 ApplicationHandler)
-│   └── state.rs          # AppMode、DrawingTool、DragState、PaletteColor
-├── controller/           # 高階畫布歷程管理器
-│   ├── mod.rs
-│   └── canvas.rs         # CanvasController (Vec<Box<dyn Drawable>> 復原/清除佇列)
-├── models/               # 幾何數學與數據結構 (SRP, OCP, LSP)
-│   ├── mod.rs            # 核心 Drawable Trait 定義
-│   ├── point.rs          # Point2D 向量計算 (距離、角度、中點、插值)
-│   ├── stroke.rs         # Pen 自由筆畫 (二階貝茲 Bézier 平滑曲線光柵化)
-│   ├── circle.rs         # Circle 節點 (半透明填色 + 銳利外框)
-│   └── arrow.rs          # Arrow 箭頭 (動態角度與三角形箭頭光柵化)
-├── platform/             # 平台抽象與 macOS AppKit 封裝 (DIP & ISP)
-│   ├── mod.rs            # WindowPlatformController Trait & PlatformError
-│   └── macos.rs          # MacosPlatformController (完全封裝 unsafe 指針操作)
-├── render/               # 向量光柵化緩衝區與 UI 繪製 (SRP)
-│   ├── mod.rs
-│   ├── font.rs           # 零相依 8x8 ASCII 點陣字體引擊
-│   ├── hud.rs            # 毛玻璃狀態面板 HUD 繪製
-│   └── renderer.rs       # tiny-skia Pixmap 記憶體管理
-├── lib.rs                # 函式庫公開介面
-└── main.rs               # 主程式入口與全域熱鍵監聽背景執行緒
-```
-
-### SOLID 具體實踐
-
-1. **單一職責原則 (Single Responsibility Principle, SRP)**:
-   - `models`：僅定義純幾何數學結構，不接觸視窗與事件。
-   - `render`：僅負責將向量幾何數據光柵化至像素記憶體。
-   - `platform`：專注於原生 macOS AppKit 與 CALayer 圖層配置。
-   - `controller`：僅負責歷史紀錄堆疊管理與組合。
-2. **開放封閉原則 (Open/Closed Principle, OCP) 與里氏替換原則 (LSP)**:
-   - 核心定義抽象 Trait：
-     ```rust
-     pub trait Drawable: Send + Sync {
-         fn draw(&self, pixmap: &mut tiny_skia::Pixmap);
-     }
-     ```
-   - 擴充新圖形（例如網格 Grid、文字框 Text）只需新增 struct 並實作 `Drawable`，無須更動現有繪圖邏輯與歷程控制器。
-   - 歷程容器統一管理 `Vec<Box<dyn Drawable>>`。
-3. **介面隔離原則 (Interface Segregation Principle, ISP)**:
-   - 平台視窗控制 (`WindowPlatformController`) 與畫布繪製職責徹底隔離，無肥大介面。
-4. **依賴反轉原則 (Dependency Inversion Principle, DIP)**:
-   - 高階畫布管理器僅依賴 `dyn Drawable` 抽象介面。
-   - 應用程式依賴 `WindowPlatformController` 介面，將所有 unsafe Objective-C 指針呼叫完全限制在 `platform::macos` 模組內部。
 
 ---
 
@@ -197,6 +75,61 @@ cargo run --release
 ```bash
 ./target/release/draw-rs
 ```
+
+---
+
+## 💡 為什麼需要 draw-rs？
+
+在 LeetCode 或線上評測解題時，傳統的演算法草稿紙或外部白板繪圖軟體需要頻繁切換視窗，打斷思考。
+
+`draw-rs` 直接在您的螢幕上方懸浮一個 **100% 原生透明的向量畫布**：
+- 🌲 **直接在 LeetCode 題目上方畫樹狀圖**（二元樹 Binary Tree、平衡樹 AVL）。
+- 🔀 **標註雙指針與滑動窗口**（清晰標示 `left`、`right` 索引位移）。
+- 🔗 **繪製鏈結串列與有向圖節點**（動態箭頭 `curr -> next`）。
+- ⚡ **一秒切換「滑鼠穿透模式」(<kbd>F1</kbd>)**：畫完指針後，一鍵穿透回 VS Code / 瀏覽器寫 code，塗鴉依然清晰懸浮在螢幕上供你對照！
+
+---
+
+## 🌟 核心功能特點
+
+| 功能特點 | 技術實現與優勢 |
+| :--- | :--- |
+| **原生透明無邊框** | 基於 macOS `NSWindow` 與 `CALayer` (Quartz 合成) 及 Linux 原生 `Argb8888` Wayland SHM / 32-bit X11 合成疊層，背景 Alpha = 0，無任何黑邊或延遲。 |
+| **全域滑鼠穿透開關** | 透過原生作業系統視窗屬性 (`setIgnoresMouseEvents:` / `set_cursor_hittest`)，搭配獨立背景執行緒捕捉全域 <kbd>F1</kbd>，無焦點時依然能秒切模式。 |
+| **互動式懸浮功能面板 HUD** | 毛玻璃半透明面板，提供點選切換工具、色票調色盤、快速操作（Undo/Clear/穿透），所有模式下皆可隨意拖曳位置。 |
+| **穿透模式下依然可拖曳面板** | 即時座標碰撞偵測（Hit-testing），即便處於滑鼠穿透模式，滑鼠移至 HUD 卡片上方仍可靈活拖曳，不干擾底層應用程式操作。 |
+| **演算法解題必備幾何圖形** | 手繪筆 (<kbd>P</kbd>)、半透明節點圓圈 (<kbd>Circle</kbd>)、動態指針箭頭 (<kbd>Arrow</kbd>) 與向量橡皮擦 (<kbd>E</kbd>)。 |
+| **精心調配高對比色票** | 專為深色/淺色程式編輯器設計的高辨識度配色（青綠、翠綠、珊瑚橘、琥珀金、紫羅蘭）。 |
+| **極致輕量零負擔** | 純 CPU 2D 向量光柵化引擎 (`tiny-skia`)，記憶體佔用極低，獨立可執行檔僅約 1.4 MB。 |
+
+---
+
+## ⌨️ 快捷鍵與操作指南
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│ ● DRAWING (3 shapes)               [Pass-Thru F1]                     ::: Drag  │
+│ ─────────────────────────────────────────────────────────────────────────────── │
+│ TOOLS: [Pen P] [Circle] [Arrow] [Eraser E]        [Undo Z]  [Clear C]           │
+│ ─────────────────────────────────────────────────────────────────────────────── │
+│ COLOR: (●) (●) (●) (●) (●)   [1-5]                                 [繁體中文 ▼]  │
+└─────────────────────────────────────────────────────────────────────────────────┘
+```
+
+| 按鍵 / 滑鼠操作 | 功能動作 | 說明 |
+| :---: | :--- | :--- |
+| **點擊 HUD 介面按鈕** | **選擇工具 / 顏色 / 操作** | 直接以滑鼠在 HUD 卡片上點擊切換工具、色彩、復原、清除或穿透模式 |
+| **語言下拉選單** | **切換介面語言** | 點擊 HUD 上的 `English ▼` 或 `繁體中文 ▼` 展開選單並即時切換語系 |
+| **拖曳 HUD 面板** | **移動懸浮視窗位置** | 按住 HUD 面板頂部或背景可自由拖曳（在「繪圖模式」與「穿透模式」下皆能拖曳！） |
+| <kbd>F1</kbd> | **切換模式（全域熱鍵）** | 切換 **「繪圖模式」** ↔ **「滑鼠穿透模式」**（無論焦點在哪均可觸發） |
+| <kbd>F2</kbd> | **輪播切換工具** | 依序輪播：手繪筆 ➔ 圓圈（節點） ➔ 箭頭（指標） ➔ 橡皮擦 |
+| <kbd>E</kbd> | **切換至橡皮擦** | 直接切換為 **橡皮擦**，游標呈現圓圈半徑範圍，精準擦除幾何線段 |
+| <kbd>P</kbd> | **切換至手繪筆** | 直接切換回 **手繪筆 (Pen)** |
+| <kbd>1</kbd> ~ <kbd>5</kbd> | **切換調色盤顏色** | 依序切換：青綠、翠綠、珊瑚橘、琥珀金、紫羅蘭色票 |
+| <kbd>L</kbd> | **快速切換語言** | 鍵盤快速鍵切換介面語言 (**English** / **繁體中文**) |
+| <kbd>Z</kbd> | **復原 (Undo)** | 可逆復原繪製筆畫，亦可復原誤擦除的線段與圖形 |
+| <kbd>C</kbd> | **清除全螢幕塗鴉** | 一鍵清空畫布上所有塗鴉與標記 |
+| <kbd>Esc</kbd> | **關閉選單 / 退出程式** | 收合展開的下拉選單，或安全關閉並退出 `draw-rs` |
 
 ---
 
@@ -241,16 +174,16 @@ cmd + shift - d : ~/.cargo/bin/draw-rs
 
 ---
 
-## 🛡️ macOS 系統權限配置指南
+## 🛡️ 系統配置與透明度指南
 
 ### 1. 為什麼背景能真正 100% 透明穿透？
-- **透明度合成機制**：`draw-rs` 採用原生視窗透明屬性（Native Alpha = 0），透過 `objc2-app-kit`、`objc2-core-graphics` 與 `objc2-quartz-core` 直接將 `tiny-skia` 預乘 Alpha 像素緩衝區 (`PremultipliedLast`) 交付 macOS 系統級 **Quartz Compositor** 合成。
-- **免除黑背景問題**：徹底解決了傳統 cross-platform buffer 函式庫因強制使用 `NoneSkipFirst` 而產生的全黑畫面瑕疵。
+- **macOS（Quartz 原生合成）**：`draw-rs` 採用原生視窗透明屬性（Native Alpha = 0），透過 `objc2-app-kit`、`objc2-core-graphics` 與 `objc2-quartz-core` 直接將 `tiny-skia` 預乘 Alpha 像素緩衝區 (`PremultipliedLast`) 交付 macOS 系統級 **Quartz Compositor** 合成，徹底免除傳統 cross-platform buffer 函式庫產生的全黑畫面瑕疵。
+- **Linux（合成器零黑邊渲染）**：在 Wayland 下採用原生 `wl_shm::Format::Argb8888` 雙緩衝共用記憶體，在 X11 下採用 32-bit ARGB 視覺呈現，將預乘 Alpha 像素即時呈現至視窗。在啟用合成管理器（如 Ubuntu 預設 Wayland 或 X11 上的 Picom）環境下達成 100% 硬體混合透明度。
 - **純浮動不偷取隱私**：`draw-rs` 是純粹懸浮於所有視窗上方的畫布，**完全不需要、也不會抓取您的螢幕畫面**。
 
 ---
 
-### 2. 系統權限檢查與配置步驟
+### 2. 系統權限檢查與配置步驟 (macOS)
 
 在 macOS（尤其是 macOS 14 Sonoma 與 macOS 15 Sequoia）上，全域快捷鍵與視窗穿透需要對應的安全權限：
 
@@ -275,6 +208,81 @@ open "x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEven
 ```bash
 open "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture"
 ```
+
+---
+
+## 🏗️ SOLID 軟體架構
+
+`draw-rs` 嚴格遵循物件導向 **SOLID 原則** 與 **Idiomatic Rust** 慣用語設計：
+
+```mermaid
+graph TD
+    UserEvent[使用者操作 / 全域熱鍵 F1] --> App[DrawApp 主控制器]
+    App --> StateMachine[AppMode 與工具狀態機]
+    App --> Controller[CanvasController 歷程管理器]
+    Controller --> Trait[<< trait >>\nDrawable]
+    Trait --> Stroke[StrokeShape: 貝茲曲線自由筆畫]
+    Trait --> Circle[CircleShape: 半透明資料結構節點]
+    Trait --> Arrow[ArrowShape: 向量指針與箭頭]
+    App --> Renderer[CanvasRenderer: tiny-skia 向量光柵化]
+    App --> Platform[WindowPlatformController 平台抽象]
+    Platform --> MacosPlatform[MacosPlatformController: objc2 & CALayer]
+    Platform --> LinuxPlatform[LinuxPlatformController: 原生 Wayland Argb8888 / X11]
+```
+
+### 模組目錄職責劃分
+
+```text
+src/
+├── app/                  # Application 控制器與狀態機
+│   ├── mod.rs            # DrawApp (實作 winit 0.30 ApplicationHandler)
+│   ├── i18n.rs           # 多國語系即時字典
+│   └── state.rs          # AppMode、DrawingTool、DragState、PaletteColor
+├── controller/           # 高階畫布歷程管理器
+│   ├── mod.rs
+│   └── canvas.rs         # CanvasController (Vec<Box<dyn Drawable>> 復原/清除佇列)
+├── models/               # 幾何數學與數據結構 (SRP, OCP, LSP)
+│   ├── mod.rs            # 核心 Drawable Trait 定義
+│   ├── point.rs          # Point2D 向量計算 (距離、角度、中點、插值)
+│   ├── stroke.rs         # Pen 自由筆畫 (二階貝茲 Bézier 平滑曲線光柵化)
+│   ├── circle.rs         # Circle 節點 (半透明填色 + 銳利外框)
+│   └── arrow.rs          # Arrow 箭頭 (動態角度與三角形箭頭光柵化)
+├── platform/             # 平台抽象與 OS 原生封裝 (DIP & ISP)
+│   ├── mod.rs            # WindowPlatformController Trait & PlatformError
+│   ├── keymap.rs         # PlatformKeymap Trait、MacosKeymap 與 LinuxKeymap
+│   ├── macos.rs          # MacosPlatformController (完全封裝 unsafe Objective-C 指針操作)
+│   ├── linux.rs          # LinuxPlatformController (原生 Wayland Argb8888 SHM / X11 光柵呈現與視窗狀態)
+│   └── dummy.rs          # DummyPlatformController (無頭測試降級實作)
+├── render/               # 向量光柵化緩衝區與 UI 繪製 (SRP)
+│   ├── mod.rs
+│   ├── font.rs           # CJK 向量字體 (fontdue) 與 8x8 ASCII 點陣字體
+│   ├── hud.rs            # 毛玻璃狀態面板 HUD 繪製
+│   └── renderer.rs       # tiny-skia Pixmap 記憶體管理
+├── lib.rs                # 函式庫公開介面
+└── main.rs               # 主程式入口與全域熱鍵監聽背景執行緒
+```
+
+### SOLID 具體實踐
+
+1. **單一職責原則 (Single Responsibility Principle, SRP)**:
+   - `models`：僅定義純幾何數學結構，不接觸視窗與事件。
+   - `render`：僅負責將向量幾何數據光柵化至像素記憶體。
+   - `platform`：專注於原生 macOS AppKit 與 Linux X11/Wayland 視窗圖層配置。
+   - `controller`：僅負責歷史紀錄堆疊管理與組合。
+2. **開放封閉原則 (Open/Closed Principle, OCP) 與里氏替換原則 (LSP)**:
+   - 核心定義抽象 Trait：
+     ```rust
+     pub trait Drawable: Send + Sync {
+         fn draw(&self, pixmap: &mut tiny_skia::Pixmap);
+     }
+     ```
+   - 擴充新圖形（例如網格 Grid、文字框 Text）只需新增 struct 並實作 `Drawable`，無須更動現有繪圖邏輯與歷程控制器。
+   - 歷程容器統一管理 `Vec<Box<dyn Drawable>>`。
+3. **介面隔離原則 (Interface Segregation Principle, ISP)**:
+   - 平台視窗控制 (`WindowPlatformController`) 與畫布繪製職責徹底隔離，無肥大介面。
+4. **依賴反轉原則 (Dependency Inversion Principle, DIP)**:
+   - 高階畫布管理器僅依賴 `dyn Drawable` 抽象介面。
+   - 應用程式依賴 `WindowPlatformController` 介面，將所有 unsafe 系統底層呼叫完全限制在 `platform` 模組內部。
 
 ---
 

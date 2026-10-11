@@ -8,6 +8,9 @@ pub mod macos;
 #[cfg(target_os = "macos")]
 pub use macos::MacosPlatformController;
 
+pub mod linux;
+pub use linux::LinuxPlatformController;
+
 pub mod dummy;
 pub use dummy::DummyPlatformController;
 
@@ -18,6 +21,7 @@ use winit::window::Window;
 pub enum PlatformError {
     InvalidWindowHandle,
     AppKitError(String),
+    BackendError(String),
     #[allow(dead_code)]
     UnsupportedPlatform,
 }
@@ -27,6 +31,7 @@ impl fmt::Display for PlatformError {
         match self {
             Self::InvalidWindowHandle => write!(f, "Invalid raw window handle"),
             Self::AppKitError(msg) => write!(f, "AppKit error: {msg}"),
+            Self::BackendError(msg) => write!(f, "Backend error: {msg}"),
             Self::UnsupportedPlatform => write!(f, "Current platform is not supported"),
         }
     }
