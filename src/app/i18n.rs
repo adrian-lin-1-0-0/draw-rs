@@ -86,6 +86,14 @@ fn default_text() -> String {
     "Text[T]".to_string()
 }
 
+fn default_action_copy() -> String {
+    "Copy [{cmd}+C]".to_string()
+}
+
+fn default_action_paste() -> String {
+    "Paste [{cmd}+V]".to_string()
+}
+
 #[derive(Debug, Clone, Deserialize)]
 pub struct PropertiesStrings {
     pub title: String,
@@ -109,6 +117,10 @@ pub struct PropertiesStrings {
     pub actions: String,
     pub action_duplicate: String,
     pub action_delete: String,
+    #[serde(default = "default_action_copy")]
+    pub action_copy: String,
+    #[serde(default = "default_action_paste")]
+    pub action_paste: String,
     pub btn_properties: String,
 }
 
@@ -255,5 +267,29 @@ impl AppLanguage {
         } else {
             self.strings().properties.title_default.clone()
         }
+    }
+
+    /// Localized Duplicate action label formatted with platform primary modifier.
+    pub fn action_duplicate(&self, modifier: &str) -> String {
+        self.strings()
+            .properties
+            .action_duplicate
+            .replace("{cmd}", modifier)
+    }
+
+    /// Localized Copy action label formatted with platform primary modifier.
+    pub fn action_copy(&self, modifier: &str) -> String {
+        self.strings()
+            .properties
+            .action_copy
+            .replace("{cmd}", modifier)
+    }
+
+    /// Localized Paste action label formatted with platform primary modifier.
+    pub fn action_paste(&self, modifier: &str) -> String {
+        self.strings()
+            .properties
+            .action_paste
+            .replace("{cmd}", modifier)
     }
 }

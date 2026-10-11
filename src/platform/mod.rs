@@ -1,11 +1,14 @@
+pub mod keymap;
+pub use keymap::{
+    LinuxKeymap, MacosKeymap, PlatformKeymap, ShortcutAction, default_platform_keymap,
+};
+
 #[cfg(target_os = "macos")]
 pub mod macos;
 #[cfg(target_os = "macos")]
 pub use macos::MacosPlatformController;
 
-#[cfg(not(target_os = "macos"))]
 pub mod dummy;
-#[cfg(not(target_os = "macos"))]
 pub use dummy::DummyPlatformController;
 
 use std::fmt;
@@ -56,4 +59,9 @@ pub trait WindowPlatformController: Send + Sync {
     /// Retrieve the current mouse cursor location in window physical pixel coordinates,
     /// even if the window is currently unfocused or ignoring mouse events.
     fn get_global_cursor_pos(&self, window: &Window) -> Option<crate::models::point::Point2D>;
+
+    /// Retrieve the platform-specific keymap & shortcut resolver.
+    fn keymap(&self) -> Box<dyn PlatformKeymap> {
+        default_platform_keymap()
+    }
 }

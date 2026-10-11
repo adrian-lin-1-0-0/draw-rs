@@ -47,11 +47,14 @@ pub struct TextShape {
 }
 
 impl TextShape {
+    pub const MIN_FONT_SIZE: f32 = 8.0;
+    pub const MAX_FONT_SIZE: f32 = 1000.0;
+
     pub fn new(position: Point2D, text: impl Into<String>, font_size: f32, color: Color) -> Self {
         Self {
             position,
             text: text.into(),
-            font_size: font_size.clamp(10.0, 120.0),
+            font_size: font_size.clamp(Self::MIN_FONT_SIZE, Self::MAX_FONT_SIZE),
             color,
             opacity: 1.0,
             seed: generate_shape_seed(),
@@ -213,8 +216,14 @@ impl Drawable for TextShape {
         self.position.x = new_bounds.min_x + tx * new_bounds.width();
         self.position.y = new_bounds.min_y + ty * new_bounds.height();
 
-        let scale = new_bounds.height() / old_bounds.height();
-        self.font_size = (self.font_size * scale).clamp(10.0, 120.0);
+        let scale_y = new_bounds.height() / old_bounds.height();
+        let scale_x = new_bounds.width() / old_bounds.width();
+        let scale = if (scale_y - 1.0).abs() >= (scale_x - 1.0).abs() {
+            scale_y
+        } else {
+            scale_x
+        };
+        self.font_size = (self.font_size * scale).clamp(Self::MIN_FONT_SIZE, Self::MAX_FONT_SIZE);
     }
 
     fn clone_box(&self) -> Box<dyn Drawable> {
@@ -229,12 +238,12 @@ impl Drawable for TextShape {
         self.color = color;
     }
 
-    fn stroke_width(&self) -> f32 {
-        self.font_size
+    fn font_size(&self) -> Option<f32> {
+        Some(self.font_size)
     }
 
-    fn set_stroke_width(&mut self, width: f32) {
-        self.font_size = width.clamp(10.0, 120.0);
+    fn set_font_size(&mut self, size: f32) {
+        self.font_size = size.clamp(Self::MIN_FONT_SIZE, Self::MAX_FONT_SIZE);
     }
 
     fn stroke_style(&self) -> StrokeStyle {

@@ -16,7 +16,7 @@ use crate::controller::CanvasController;
 use crate::models::{
     CornerStyle, Drawable, Point2D, Rect2D, Sloppiness, StrokeStyle, TextShape, TransformHandle,
 };
-use crate::platform::WindowPlatformController;
+use crate::platform::{PlatformKeymap, ShortcutAction, WindowPlatformController};
 use crate::render::{
     CanvasRenderer, HudHitTarget, HudOverlay, HudRenderParams, InspectorHitTarget,
     InspectorOverlay, InspectorRenderParams, SelectionRenderer,
@@ -45,6 +45,7 @@ pub struct TextEditSession {
 /// - DIP: Interacts with the platform layer strictly via `Box<dyn WindowPlatformController>`.
 pub struct DrawApp {
     platform: Box<dyn WindowPlatformController>,
+    keymap: Box<dyn PlatformKeymap>,
     canvas: CanvasController,
     renderer: Option<CanvasRenderer>,
     window: Option<Arc<Window>>,
@@ -76,9 +77,11 @@ pub struct DrawApp {
 
 impl DrawApp {
     pub fn new(platform: Box<dyn WindowPlatformController>) -> Self {
+        let keymap = platform.keymap();
         let initial_color = PaletteColor::Cyan;
         Self {
             platform,
+            keymap,
             canvas: CanvasController::new(),
             renderer: None,
             window: None,
@@ -109,6 +112,36 @@ impl DrawApp {
             active_opacity: 1.0,
             active_font_size: 24.0,
         }
+    }
+
+    /// Construct a DrawApp with an explicitly injected keymap (useful for testing or platform overrides).
+    pub fn with_keymap(
+        platform: Box<dyn WindowPlatformController>,
+        keymap: Box<dyn PlatformKeymap>,
+    ) -> Self {
+        let mut app = Self::new(platform);
+        app.keymap = keymap;
+        app
+    }
+
+    /// Access the active platform keymap.
+    pub fn keymap(&self) -> &dyn PlatformKeymap {
+        &*self.keymap
+    }
+
+    /// Access the canvas controller.
+    pub fn canvas(&self) -> &CanvasController {
+        &self.canvas
+    }
+
+    /// Mutably access the canvas controller.
+    pub fn canvas_mut(&mut self) -> &mut CanvasController {
+        &mut self.canvas
+    }
+
+    /// Access currently selected shape indices.
+    pub fn selected_indices(&self) -> &[usize] {
+        &self.selected_indices
     }
 
     /// Computes the default anchored position for the Properties panel right below the HUD card.
@@ -393,6 +426,7 @@ impl DrawApp {
                 stroke_width: self.stroke_width,
                 stroke_style: self.active_stroke_style,
                 language: self.language,
+                primary_modifier: self.keymap.primary_modifier_name(),
             };
             InspectorOverlay::render(
                 renderer.pixmap_mut(),
@@ -964,6 +998,23 @@ impl ApplicationHandler<AppEvent> for DrawApp {
                                     }
                                     return;
                                 }
+                                InspectorHitTarget::Copy => {
+                                    self.canvas.copy_selected(&self.selected_indices);
+                                    if let Some(w) = &self.window {
+                                        w.request_redraw();
+                                    }
+                                    return;
+                                }
+                                InspectorHitTarget::Paste => {
+                                    let new_indices = self.canvas.paste(Point2D::new(20.0, 20.0));
+                                    if !new_indices.is_empty() {
+                                        self.selected_indices = new_indices;
+                                    }
+                                    if let Some(w) = &self.window {
+                                        w.request_redraw();
+                                    }
+                                    return;
+                                }
                                 InspectorHitTarget::Duplicate => {
                                     self.selected_indices = self.canvas.duplicate(
                                         &self.selected_indices,
@@ -1099,11 +1150,16 @@ impl ApplicationHandler<AppEvent> for DrawApp {
                                     if let Some(s) = self.canvas.shape(idx) {
                                         self.active_stroke_color = s.stroke_color();
                                         self.active_fill_color = s.fill_color();
-                                        self.stroke_width = s.stroke_width();
+                                        if s.font_size().is_none() {
+                                            self.stroke_width = s.stroke_width();
+                                        }
                                         self.active_stroke_style = s.stroke_style();
                                         self.active_sloppiness = s.sloppiness();
                                         self.active_corner_style = s.corner_style();
                                         self.active_opacity = s.opacity();
+                                        if let Some(fs) = s.font_size() {
+                                            self.active_font_size = fs;
+                                        }
                                     }
 
                                     let initial_shapes: Vec<(usize, Box<dyn Drawable>)> = self
@@ -1442,7 +1498,33 @@ impl ApplicationHandler<AppEvent> for DrawApp {
                         return;
                     }
 
-                    if let Some(text_str) = text.as_deref() {
+                    if self
+                        .keymap
+                        .matches_action(ShortcutAction::Copy, &self.modifiers, key)
+                    {
+                        self.canvas.copy_selected(&[shape_idx]);
+                        return;
+                    }
+
+                    if self
+                        .keymap
+                        .matches_action(ShortcutAction::Paste, &self.modifiers, key)
+                    {
+                        self.commit_text_editing();
+                        let new_indices = self.canvas.paste(Point2D::new(20.0, 20.0));
+                        if !new_indices.is_empty() {
+                            self.selected_indices = new_indices;
+                        }
+                        if let Some(w) = &self.window {
+                            w.set_cursor(self.default_cursor_for_tool());
+                            w.request_redraw();
+                        }
+                        return;
+                    }
+
+                    if let Some(text_str) = text.as_deref()
+                        && self.keymap.has_no_command_modifier(&self.modifiers)
+                    {
                         let filtered: String = text_str
                             .chars()
                             .filter(|&c| c >= ' ' || c == '\t')
@@ -1461,186 +1543,287 @@ impl ApplicationHandler<AppEvent> for DrawApp {
                     return;
                 }
 
-                match key {
-                    KeyCode::F1 => {
-                        self.commit_text_editing();
-                        self.toggle_mode();
-                    }
-                    KeyCode::F2 => {
-                        self.commit_text_editing();
-                        self.tool = self.tool.cycle();
-                        if self.tool == DrawingTool::Hand {
-                            self.selected_indices.clear();
-                        }
-                        if let Some(w) = &self.window {
-                            w.set_cursor(self.default_cursor_for_tool());
-                            w.request_redraw();
-                        }
-                    }
-                    KeyCode::KeyV => {
-                        self.commit_text_editing();
-                        self.tool = DrawingTool::Selection;
-                        if let Some(w) = &self.window {
-                            w.set_cursor(self.default_cursor_for_tool());
-                            w.request_redraw();
-                        }
-                    }
-                    KeyCode::KeyH => {
-                        self.commit_text_editing();
-                        self.tool = DrawingTool::Hand;
+                if self
+                    .keymap
+                    .matches_action(ShortcutAction::ToggleMode, &self.modifiers, key)
+                {
+                    self.commit_text_editing();
+                    self.toggle_mode();
+                } else if self.keymap.matches_action(
+                    ShortcutAction::CycleTool,
+                    &self.modifiers,
+                    key,
+                ) {
+                    self.commit_text_editing();
+                    self.tool = self.tool.cycle();
+                    if self.tool == DrawingTool::Hand {
                         self.selected_indices.clear();
+                    }
+                    if let Some(w) = &self.window {
+                        w.set_cursor(self.default_cursor_for_tool());
+                        w.request_redraw();
+                    }
+                } else if self
+                    .keymap
+                    .matches_action(ShortcutAction::Copy, &self.modifiers, key)
+                {
+                    self.canvas.copy_selected(&self.selected_indices);
+                } else if self
+                    .keymap
+                    .matches_action(ShortcutAction::Paste, &self.modifiers, key)
+                {
+                    let new_indices = self.canvas.paste(Point2D::new(20.0, 20.0));
+                    if !new_indices.is_empty() {
+                        self.selected_indices = new_indices;
+                    }
+                    if let Some(w) = &self.window {
+                        w.set_cursor(self.default_cursor_for_tool());
+                        w.request_redraw();
+                    }
+                } else if self.keymap.matches_action(
+                    ShortcutAction::Duplicate,
+                    &self.modifiers,
+                    key,
+                ) {
+                    self.selected_indices = self
+                        .canvas
+                        .duplicate(&self.selected_indices, Point2D::new(20.0, 20.0));
+                    if let Some(w) = &self.window {
+                        w.set_cursor(self.default_cursor_for_tool());
+                        w.request_redraw();
+                    }
+                } else if self
+                    .keymap
+                    .matches_action(ShortcutAction::Redo, &self.modifiers, key)
+                {
+                    self.canvas.redo();
+                    if let Some(w) = &self.window {
+                        w.request_redraw();
+                    }
+                } else if self
+                    .keymap
+                    .matches_action(ShortcutAction::Undo, &self.modifiers, key)
+                {
+                    self.canvas.undo();
+                    if let Some(w) = &self.window {
+                        w.request_redraw();
+                    }
+                } else if self
+                    .keymap
+                    .matches_action(ShortcutAction::Clear, &self.modifiers, key)
+                {
+                    self.canvas.clear();
+                    self.selected_indices.clear();
+                    if let Some(w) = &self.window {
+                        w.request_redraw();
+                    }
+                } else if self.keymap.matches_action(
+                    ShortcutAction::IncreaseFontSize,
+                    &self.modifiers,
+                    key,
+                ) {
+                    let mut original = Vec::new();
+                    let mut modified = Vec::new();
+                    for &idx in &self.selected_indices {
+                        if let Some(shape) = self.canvas.shape_mut(idx)
+                            && let Some(fs) = shape.font_size()
+                        {
+                            let orig_box = shape.clone_box();
+                            shape.set_font_size((fs * 1.2).round());
+                            if shape.font_size() != Some(fs) {
+                                original.push((idx, orig_box));
+                                modified.push((idx, shape.clone_box()));
+                            }
+                        }
+                    }
+                    if !original.is_empty() {
+                        if let Some(first_mod) = modified.first()
+                            && let Some(new_fs) = first_mod.1.font_size()
+                        {
+                            self.active_font_size = new_fs;
+                        }
+                        self.canvas.commit_transform(original, modified);
                         if let Some(w) = &self.window {
-                            w.set_cursor(self.default_cursor_for_tool());
                             w.request_redraw();
                         }
                     }
-                    KeyCode::KeyR => {
-                        self.tool = DrawingTool::Rectangle;
+                } else if self.keymap.matches_action(
+                    ShortcutAction::DecreaseFontSize,
+                    &self.modifiers,
+                    key,
+                ) {
+                    let mut original = Vec::new();
+                    let mut modified = Vec::new();
+                    for &idx in &self.selected_indices {
+                        if let Some(shape) = self.canvas.shape_mut(idx)
+                            && let Some(fs) = shape.font_size()
+                        {
+                            let orig_box = shape.clone_box();
+                            shape.set_font_size((fs / 1.2).round());
+                            if shape.font_size() != Some(fs) {
+                                original.push((idx, orig_box));
+                                modified.push((idx, shape.clone_box()));
+                            }
+                        }
+                    }
+                    if !original.is_empty() {
+                        if let Some(first_mod) = modified.first()
+                            && let Some(new_fs) = first_mod.1.font_size()
+                        {
+                            self.active_font_size = new_fs;
+                        }
+                        self.canvas.commit_transform(original, modified);
                         if let Some(w) = &self.window {
-                            w.set_cursor(self.default_cursor_for_tool());
                             w.request_redraw();
                         }
                     }
-                    KeyCode::KeyD => {
-                        if self.modifiers.super_key() {
-                            self.selected_indices = self
-                                .canvas
-                                .duplicate(&self.selected_indices, Point2D::new(20.0, 20.0));
-                        } else {
+                } else if self
+                    .keymap
+                    .matches_action(ShortcutAction::Delete, &self.modifiers, key)
+                    && !self.selected_indices.is_empty()
+                {
+                    self.canvas.delete_selected(&self.selected_indices);
+                    self.selected_indices.clear();
+                    if let Some(w) = &self.window {
+                        w.request_redraw();
+                    }
+                } else {
+                    match key {
+                        KeyCode::KeyV => {
+                            self.commit_text_editing();
+                            self.tool = DrawingTool::Selection;
+                            if let Some(w) = &self.window {
+                                w.set_cursor(self.default_cursor_for_tool());
+                                w.request_redraw();
+                            }
+                        }
+                        KeyCode::KeyH => {
+                            self.commit_text_editing();
+                            self.tool = DrawingTool::Hand;
+                            self.selected_indices.clear();
+                            if let Some(w) = &self.window {
+                                w.set_cursor(self.default_cursor_for_tool());
+                                w.request_redraw();
+                            }
+                        }
+                        KeyCode::KeyR => {
+                            self.tool = DrawingTool::Rectangle;
+                            if let Some(w) = &self.window {
+                                w.set_cursor(self.default_cursor_for_tool());
+                                w.request_redraw();
+                            }
+                        }
+                        KeyCode::KeyD => {
                             self.tool = DrawingTool::Diamond;
+                            if let Some(w) = &self.window {
+                                w.set_cursor(self.default_cursor_for_tool());
+                                w.request_redraw();
+                            }
                         }
-                        if let Some(w) = &self.window {
-                            w.set_cursor(self.default_cursor_for_tool());
-                            w.request_redraw();
+                        KeyCode::KeyO => {
+                            self.tool = DrawingTool::Circle;
+                            if let Some(w) = &self.window {
+                                w.set_cursor(self.default_cursor_for_tool());
+                                w.request_redraw();
+                            }
                         }
-                    }
-                    KeyCode::KeyO => {
-                        self.tool = DrawingTool::Circle;
-                        if let Some(w) = &self.window {
-                            w.set_cursor(self.default_cursor_for_tool());
-                            w.request_redraw();
+                        KeyCode::KeyA => {
+                            self.tool = DrawingTool::Arrow;
+                            if let Some(w) = &self.window {
+                                w.set_cursor(self.default_cursor_for_tool());
+                                w.request_redraw();
+                            }
                         }
-                    }
-                    KeyCode::KeyA => {
-                        self.tool = DrawingTool::Arrow;
-                        if let Some(w) = &self.window {
-                            w.set_cursor(self.default_cursor_for_tool());
-                            w.request_redraw();
+                        KeyCode::KeyL => {
+                            self.tool = DrawingTool::Line;
+                            if let Some(w) = &self.window {
+                                w.set_cursor(self.default_cursor_for_tool());
+                                w.request_redraw();
+                            }
                         }
-                    }
-                    KeyCode::KeyL => {
-                        self.tool = DrawingTool::Line;
-                        if let Some(w) = &self.window {
-                            w.set_cursor(self.default_cursor_for_tool());
-                            w.request_redraw();
+                        KeyCode::KeyP => {
+                            self.tool = DrawingTool::Pen;
+                            if let Some(w) = &self.window {
+                                w.set_cursor(self.default_cursor_for_tool());
+                                w.request_redraw();
+                            }
                         }
-                    }
-                    KeyCode::KeyP => {
-                        self.tool = DrawingTool::Pen;
-                        if let Some(w) = &self.window {
-                            w.set_cursor(self.default_cursor_for_tool());
-                            w.request_redraw();
+                        KeyCode::KeyT => {
+                            self.tool = DrawingTool::Text;
+                            if let Some(w) = &self.window {
+                                w.set_cursor(self.default_cursor_for_tool());
+                                w.request_redraw();
+                            }
                         }
-                    }
-                    KeyCode::KeyT => {
-                        self.tool = DrawingTool::Text;
-                        if let Some(w) = &self.window {
-                            w.set_cursor(self.default_cursor_for_tool());
-                            w.request_redraw();
+                        KeyCode::KeyE => {
+                            self.tool = DrawingTool::Eraser;
+                            if let Some(w) = &self.window {
+                                w.set_cursor(self.default_cursor_for_tool());
+                                w.request_redraw();
+                            }
                         }
-                    }
-                    KeyCode::KeyE => {
-                        self.tool = DrawingTool::Eraser;
-                        if let Some(w) = &self.window {
-                            w.set_cursor(self.default_cursor_for_tool());
-                            w.request_redraw();
+                        KeyCode::Escape => {
+                            if self.is_lang_menu_open {
+                                self.is_lang_menu_open = false;
+                                if let Some(w) = &self.window {
+                                    w.request_redraw();
+                                }
+                            } else if self.is_properties_open {
+                                self.is_properties_open = false;
+                                if let Some(w) = &self.window {
+                                    w.request_redraw();
+                                }
+                            } else if !self.selected_indices.is_empty() {
+                                self.selected_indices.clear();
+                                if let Some(w) = &self.window {
+                                    w.request_redraw();
+                                }
+                            } else {
+                                event_loop.exit();
+                            }
                         }
-                    }
-                    KeyCode::KeyZ => {
-                        if self.modifiers.super_key() && self.modifiers.shift_key() {
-                            self.canvas.redo();
-                        } else {
-                            self.canvas.undo();
-                        }
-                        if let Some(w) = &self.window {
-                            w.request_redraw();
-                        }
-                    }
-                    KeyCode::Delete | KeyCode::Backspace if !self.selected_indices.is_empty() => {
-                        self.canvas.delete_selected(&self.selected_indices);
-                        self.selected_indices.clear();
-                        if let Some(w) = &self.window {
-                            w.request_redraw();
-                        }
-                    }
-                    KeyCode::KeyC => {
-                        self.canvas.clear();
-                        self.selected_indices.clear();
-                        if let Some(w) = &self.window {
-                            w.request_redraw();
-                        }
-                    }
-                    KeyCode::Escape => {
-                        if self.is_lang_menu_open {
-                            self.is_lang_menu_open = false;
+                        KeyCode::Digit1 => {
+                            self.color = PaletteColor::Cyan;
+                            self.active_stroke_color = self.color.to_color();
+                            self.apply_style_to_selected();
                             if let Some(w) = &self.window {
                                 w.request_redraw();
                             }
-                        } else if self.is_properties_open {
-                            self.is_properties_open = false;
+                        }
+                        KeyCode::Digit2 => {
+                            self.color = PaletteColor::Emerald;
+                            self.active_stroke_color = self.color.to_color();
+                            self.apply_style_to_selected();
                             if let Some(w) = &self.window {
                                 w.request_redraw();
                             }
-                        } else if !self.selected_indices.is_empty() {
-                            self.selected_indices.clear();
+                        }
+                        KeyCode::Digit3 => {
+                            self.color = PaletteColor::Coral;
+                            self.active_stroke_color = self.color.to_color();
+                            self.apply_style_to_selected();
                             if let Some(w) = &self.window {
                                 w.request_redraw();
                             }
-                        } else {
-                            event_loop.exit();
                         }
-                    }
-                    KeyCode::Digit1 => {
-                        self.color = PaletteColor::Cyan;
-                        self.active_stroke_color = self.color.to_color();
-                        self.apply_style_to_selected();
-                        if let Some(w) = &self.window {
-                            w.request_redraw();
+                        KeyCode::Digit4 => {
+                            self.color = PaletteColor::Amber;
+                            self.active_stroke_color = self.color.to_color();
+                            self.apply_style_to_selected();
+                            if let Some(w) = &self.window {
+                                w.request_redraw();
+                            }
                         }
-                    }
-                    KeyCode::Digit2 => {
-                        self.color = PaletteColor::Emerald;
-                        self.active_stroke_color = self.color.to_color();
-                        self.apply_style_to_selected();
-                        if let Some(w) = &self.window {
-                            w.request_redraw();
+                        KeyCode::Digit5 => {
+                            self.color = PaletteColor::Violet;
+                            self.active_stroke_color = self.color.to_color();
+                            self.apply_style_to_selected();
+                            if let Some(w) = &self.window {
+                                w.request_redraw();
+                            }
                         }
+                        _ => {}
                     }
-                    KeyCode::Digit3 => {
-                        self.color = PaletteColor::Coral;
-                        self.active_stroke_color = self.color.to_color();
-                        self.apply_style_to_selected();
-                        if let Some(w) = &self.window {
-                            w.request_redraw();
-                        }
-                    }
-                    KeyCode::Digit4 => {
-                        self.color = PaletteColor::Amber;
-                        self.active_stroke_color = self.color.to_color();
-                        self.apply_style_to_selected();
-                        if let Some(w) = &self.window {
-                            w.request_redraw();
-                        }
-                    }
-                    KeyCode::Digit5 => {
-                        self.color = PaletteColor::Violet;
-                        self.active_stroke_color = self.color.to_color();
-                        self.apply_style_to_selected();
-                        if let Some(w) = &self.window {
-                            w.request_redraw();
-                        }
-                    }
-                    _ => {}
                 }
             }
 

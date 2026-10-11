@@ -1,9 +1,12 @@
 use draw_rs::{
-    AppLanguage, ArrowShape, CanvasController, CircleShape, CornerStyle, DiamondShape, Drawable,
-    InspectorHitTarget, InspectorOverlay, InspectorRenderParams, LineShape, Point2D, Rect2D,
-    RectangleShape, SelectionRenderer, Sloppiness, StrokeStyle, TextShape, TransformHandle,
+    AppLanguage, ArrowShape, CanvasController, CircleShape, CornerStyle, DiamondShape, DrawApp,
+    Drawable, DummyPlatformController, InspectorHitTarget, InspectorOverlay, InspectorRenderParams,
+    LineShape, LinuxKeymap, MacosKeymap, PlatformKeymap, Point2D, Rect2D, RectangleShape,
+    SelectionRenderer, ShortcutAction, Sloppiness, StrokeStyle, TextEditSession, TextShape,
+    TransformHandle,
 };
 use tiny_skia::{Color, Pixmap};
+use winit::keyboard::{KeyCode, ModifiersState};
 
 #[test]
 fn test_rectangle_shape_geometry_and_rough_rendering() {
@@ -379,6 +382,33 @@ fn test_inspector_hud_hit_testing_and_rendering() {
         InspectorHitTarget::Delete
     );
 
+    // Quick Actions Copy & Paste test
+    let copy_point = Point2D::new(inspector_pos.x + 50.0, inspector_pos.y + 325.0);
+    assert_eq!(
+        InspectorOverlay::hit_test(inspector_pos, copy_point, scale),
+        InspectorHitTarget::Copy
+    );
+
+    let paste_point = Point2D::new(inspector_pos.x + 160.0, inspector_pos.y + 325.0);
+    assert_eq!(
+        InspectorOverlay::hit_test(inspector_pos, paste_point, scale),
+        InspectorHitTarget::Paste
+    );
+
+    // Hitbox boundary tests: Row 1 is 288..=312, Row 2 is 318..=342.
+    // 313..317 is the gap between Row 1 and Row 2, and >342 is below Row 2.
+    let gap_point = Point2D::new(inspector_pos.x + 50.0, inspector_pos.y + 314.0);
+    assert_eq!(
+        InspectorOverlay::hit_test(inspector_pos, gap_point, scale),
+        InspectorHitTarget::None
+    );
+
+    let below_row2 = Point2D::new(inspector_pos.x + 50.0, inspector_pos.y + 343.0);
+    assert_eq!(
+        InspectorOverlay::hit_test(inspector_pos, below_row2, scale),
+        InspectorHitTarget::None
+    );
+
     // Render inspector onto pixmap (English)
     let mut pixmap = Pixmap::new(300, 750).unwrap();
     let params = InspectorRenderParams {
@@ -388,6 +418,7 @@ fn test_inspector_hud_hit_testing_and_rendering() {
         stroke_width: 3.5,
         stroke_style: StrokeStyle::Solid,
         language: AppLanguage::En,
+        primary_modifier: "Cmd",
     };
     InspectorOverlay::render(&mut pixmap, &params, scale, inspector_pos);
     assert!(pixmap.pixels().iter().any(|p| p.alpha() > 0));
@@ -472,4 +503,364 @@ fn test_canvas_pan_and_text_interactive_input() {
     let rect_bb = canvas.shape(1).unwrap().bounding_box().unwrap();
     assert_eq!(rect_bb.min_x, 130.0);
     assert_eq!(rect_bb.min_y, 80.0);
+}
+
+#[test]
+fn test_canvas_copy_and_paste() {
+    let mut canvas = CanvasController::new();
+    assert!(!canvas.has_clipboard());
+    assert_eq!(canvas.clipboard_count(), 0);
+    assert_eq!(canvas.paste_count(), 0);
+
+    // Copy with empty or invalid indices should not set paste_count to 1
+    assert_eq!(canvas.copy_selected(&[]), 0);
+    assert_eq!(canvas.paste_count(), 0);
+    assert_eq!(canvas.copy_selected(&[999]), 0);
+    assert_eq!(canvas.paste_count(), 0);
+
+    // Paste with empty clipboard should do nothing
+    let pasted_empty = canvas.paste(Point2D::new(20.0, 20.0));
+    assert!(pasted_empty.is_empty());
+    assert_eq!(canvas.paste_count(), 0);
+
+    // Add shapes to canvas
+    let rect = RectangleShape::new(
+        Point2D::new(50.0, 50.0),
+        100.0,
+        60.0,
+        Color::from_rgba8(255, 0, 0, 255),
+        None,
+        2.0,
+    );
+    let text = TextShape::new(
+        Point2D::new(200.0, 200.0),
+        "Copy Me",
+        24.0,
+        Color::from_rgba8(0, 255, 0, 255),
+    );
+    canvas.push_shape(Box::new(rect));
+    canvas.push_shape(Box::new(text));
+    assert_eq!(canvas.shape_count(), 2);
+
+    // 1. Copy selected shapes (both index 0 and 1)
+    let copied_count = canvas.copy_selected(&[0, 1]);
+    assert_eq!(copied_count, 2);
+    assert!(canvas.has_clipboard());
+    assert_eq!(canvas.clipboard_count(), 2);
+
+    // 2. First Paste: offset by (20.0, 20.0) * 1 = (20.0, 20.0)
+    let new_indices_1 = canvas.paste(Point2D::new(20.0, 20.0));
+    assert_eq!(new_indices_1, vec![2, 3]);
+    assert_eq!(canvas.shape_count(), 4);
+
+    let pasted_rect_bb = canvas.shape(2).unwrap().bounding_box().unwrap();
+    assert_eq!(pasted_rect_bb.min_x, 70.0);
+    assert_eq!(pasted_rect_bb.min_y, 70.0);
+
+    assert_eq!(canvas.shape(3).unwrap().text_content(), Some("Copy Me"));
+
+    // 3. Second Paste: offset by (20.0, 20.0) * 2 = (40.0, 40.0) from original
+    let new_indices_2 = canvas.paste(Point2D::new(20.0, 20.0));
+    assert_eq!(new_indices_2, vec![4, 5]);
+    assert_eq!(canvas.shape_count(), 6);
+
+    let pasted_rect_bb2 = canvas.shape(4).unwrap().bounding_box().unwrap();
+    assert_eq!(pasted_rect_bb2.min_x, 90.0);
+    assert_eq!(pasted_rect_bb2.min_y, 90.0);
+
+    // 4. Undo the second paste
+    assert!(canvas.undo());
+    assert_eq!(canvas.shape_count(), 4);
+
+    // 5. Redo the second paste
+    assert!(canvas.redo());
+    assert_eq!(canvas.shape_count(), 6);
+
+    // 6. Copy with non-existent indices resets clipboard and resets paste_count to 0
+    assert_eq!(canvas.copy_selected(&[9999]), 0);
+    assert!(!canvas.has_clipboard());
+    assert_eq!(canvas.clipboard_count(), 0);
+    assert_eq!(canvas.paste_count(), 0);
+}
+
+#[test]
+fn test_text_enlargement_beyond_previous_limit() {
+    // 1. Verify text shape can be instantiated with large font size (> 120.0)
+    let mut large_text = TextShape::new(
+        Point2D::new(10.0, 10.0),
+        "Huge Header",
+        250.0,
+        Color::from_rgba8(255, 255, 255, 255),
+    );
+    assert_eq!(large_text.font_size, 250.0);
+    assert_eq!(large_text.font_size(), Some(250.0));
+
+    // 2. Test enlargement via resize handles from old bounds to 2x larger bounds
+    let old_bounds = large_text.bounding_box().unwrap();
+    let new_bounds = Rect2D::from_xywh(
+        old_bounds.min_x,
+        old_bounds.min_y,
+        old_bounds.width() * 2.0,
+        old_bounds.height() * 2.0,
+    );
+    large_text.resize(old_bounds, new_bounds);
+    assert!((large_text.font_size - 500.0).abs() < 1.0);
+
+    // 3. Scale up to maximum limit (1000.0)
+    let old_b2 = large_text.bounding_box().unwrap();
+    let new_b2 = Rect2D::from_xywh(
+        old_b2.min_x,
+        old_b2.min_y,
+        old_b2.width() * 3.0,
+        old_b2.height() * 3.0,
+    );
+    large_text.resize(old_b2, new_b2);
+    assert_eq!(large_text.font_size, 1000.0); // clamped at MAX_FONT_SIZE (1000.0)
+
+    // 4. Test horizontal resizing also scales font size
+    let old_b3 = large_text.bounding_box().unwrap();
+    let new_b3 = Rect2D::from_xywh(
+        old_b3.min_x,
+        old_b3.min_y,
+        old_b3.width() * 0.5,
+        old_b3.height(),
+    );
+    large_text.resize(old_b3, new_b3);
+    assert!((large_text.font_size - 500.0).abs() < 1.0);
+
+    // 5. Verify stroke_width setting (e.g. from general color/style change) does not crush font size
+    large_text.set_stroke_width(2.5);
+    assert_eq!(large_text.font_size, 500.0);
+    // And verify stroke_width() does not return font size (1000 or 500), avoiding canvas stroke_width pollution
+    assert_ne!(large_text.stroke_width(), 500.0);
+
+    // 6. Test set_font_size method
+    large_text.set_font_size(600.0);
+    assert_eq!(large_text.font_size, 600.0);
+}
+
+#[test]
+fn test_text_font_size_scaling_undoable() {
+    let mut canvas = CanvasController::new();
+    let text = TextShape::new(
+        Point2D::new(50.0, 50.0),
+        "Undo Scaling Test",
+        20.0,
+        Color::from_rgba8(255, 255, 255, 255),
+    );
+    canvas.push_shape(Box::new(text));
+    assert_eq!(canvas.shape(0).unwrap().font_size(), Some(20.0));
+
+    // Simulate font scaling with commit_transform
+    let orig = vec![(0, canvas.shape(0).unwrap().clone_box())];
+    canvas.shape_mut(0).unwrap().set_font_size(24.0);
+    let modified = vec![(0, canvas.shape(0).unwrap().clone_box())];
+    canvas.commit_transform(orig, modified);
+
+    assert_eq!(canvas.shape(0).unwrap().font_size(), Some(24.0));
+
+    // Undo should restore 20.0
+    assert!(canvas.undo());
+    assert_eq!(canvas.shape(0).unwrap().font_size(), Some(20.0));
+
+    // Redo should restore 24.0
+    assert!(canvas.redo());
+    assert_eq!(canvas.shape(0).unwrap().font_size(), Some(24.0));
+}
+
+#[test]
+fn test_platform_keymap_macos_and_linux_abstraction() {
+    let mac = MacosKeymap;
+    assert_eq!(mac.primary_modifier_name(), "Cmd");
+    assert_eq!(mac.format_shortcut("C"), "Cmd+C");
+    assert_eq!(mac.format_template("Copy [{cmd}+C]"), "Copy [Cmd+C]");
+
+    let lin = LinuxKeymap;
+    assert_eq!(lin.primary_modifier_name(), "Ctrl");
+    assert_eq!(lin.format_shortcut("C"), "Ctrl+C");
+    assert_eq!(lin.format_template("Copy [{cmd}+C]"), "Copy [Ctrl+C]");
+
+    // Modifier matching tests
+    let mut ctrl_mod = ModifiersState::empty();
+    ctrl_mod.insert(ModifiersState::CONTROL);
+
+    let mut super_mod = ModifiersState::empty();
+    super_mod.insert(ModifiersState::SUPER);
+
+    let mut ctrl_shift = ModifiersState::empty();
+    ctrl_shift.insert(ModifiersState::CONTROL);
+    ctrl_shift.insert(ModifiersState::SHIFT);
+
+    let mut super_shift = ModifiersState::empty();
+    super_shift.insert(ModifiersState::SUPER);
+    super_shift.insert(ModifiersState::SHIFT);
+
+    // macOS matches Super for Copy
+    assert!(mac.matches_action(ShortcutAction::Copy, &super_mod, KeyCode::KeyC));
+    assert!(mac.matches_action(ShortcutAction::Redo, &super_shift, KeyCode::KeyZ));
+
+    // Linux matches Control for Copy
+    assert!(lin.matches_action(ShortcutAction::Copy, &ctrl_mod, KeyCode::KeyC));
+    assert!(!lin.matches_action(ShortcutAction::Copy, &super_mod, KeyCode::KeyC));
+
+    // Linux matches both Ctrl+Shift+Z and Ctrl+Y for Redo
+    assert!(lin.matches_action(ShortcutAction::Redo, &ctrl_shift, KeyCode::KeyZ));
+    assert!(lin.matches_action(ShortcutAction::Redo, &ctrl_mod, KeyCode::KeyY));
+}
+
+#[test]
+fn test_app_language_action_labels_with_platform_modifier() {
+    assert_eq!(AppLanguage::En.action_copy("Cmd"), "Copy [Cmd+C]");
+    assert_eq!(AppLanguage::En.action_copy("Ctrl"), "Copy [Ctrl+C]");
+    assert_eq!(AppLanguage::En.action_duplicate("Cmd"), "Duplicate [Cmd+D]");
+    assert_eq!(AppLanguage::En.action_paste("Ctrl"), "Paste [Ctrl+V]");
+
+    assert_eq!(AppLanguage::ZhTw.action_copy("Cmd"), "複製 [Cmd+C]");
+    assert_eq!(AppLanguage::ZhTw.action_copy("Ctrl"), "複製 [Ctrl+C]");
+    assert_eq!(AppLanguage::ZhTw.action_duplicate("Cmd"), "再製 [Cmd+D]");
+    assert_eq!(AppLanguage::ZhTw.action_paste("Ctrl"), "貼上 [Ctrl+V]");
+}
+
+#[test]
+fn test_draw_app_with_injected_platform_keymap() {
+    let dummy = Box::new(DummyPlatformController::new());
+    let app_linux = DrawApp::with_keymap(dummy, Box::new(LinuxKeymap));
+    assert_eq!(app_linux.keymap().primary_modifier_name(), "Ctrl");
+
+    let dummy2 = Box::new(DummyPlatformController::new());
+    let app_mac = DrawApp::with_keymap(dummy2, Box::new(MacosKeymap));
+    assert_eq!(app_mac.keymap().primary_modifier_name(), "Cmd");
+}
+
+#[test]
+fn test_paste_counter_restored_on_undo_and_redo() {
+    let mut canvas = CanvasController::new();
+    let rect = RectangleShape::new(
+        Point2D::new(50.0, 50.0),
+        100.0,
+        60.0,
+        Color::from_rgba8(255, 0, 0, 255),
+        None,
+        2.0,
+    );
+    canvas.push_shape(Box::new(rect));
+
+    // Copy shape
+    assert_eq!(canvas.copy_selected(&[0]), 1);
+    assert_eq!(canvas.paste_count(), 1);
+
+    // Paste 1: offset (20.0, 20.0) -> position (70.0, 70.0)
+    let p1 = canvas.paste(Point2D::new(20.0, 20.0));
+    assert_eq!(p1, vec![1]);
+    assert_eq!(canvas.paste_count(), 2);
+    let bb1 = canvas.shape(1).unwrap().bounding_box().unwrap();
+    assert_eq!(bb1.min_x, 70.0);
+    assert_eq!(bb1.min_y, 70.0);
+
+    // Paste 2: offset (40.0, 40.0) -> position (90.0, 90.0)
+    let p2 = canvas.paste(Point2D::new(20.0, 20.0));
+    assert_eq!(p2, vec![2]);
+    assert_eq!(canvas.paste_count(), 3);
+    let bb2 = canvas.shape(2).unwrap().bounding_box().unwrap();
+    assert_eq!(bb2.min_x, 90.0);
+    assert_eq!(bb2.min_y, 90.0);
+
+    // Undo Paste 2 -> paste_count must be restored to 2
+    assert!(canvas.undo());
+    assert_eq!(canvas.shape_count(), 2);
+    assert_eq!(canvas.paste_count(), 2);
+
+    // Paste after undo -> must use offset (40.0, 40.0) at (90.0, 90.0), NOT (60.0, 60.0)
+    let p3 = canvas.paste(Point2D::new(20.0, 20.0));
+    assert_eq!(p3, vec![2]);
+    assert_eq!(canvas.paste_count(), 3);
+    let bb3 = canvas.shape(2).unwrap().bounding_box().unwrap();
+    assert_eq!(bb3.min_x, 90.0);
+    assert_eq!(bb3.min_y, 90.0);
+
+    // Undo Paste 3 and Undo Paste 1
+    assert!(canvas.undo()); // drops p3, paste_count -> 2
+    assert_eq!(canvas.paste_count(), 2);
+    assert!(canvas.undo()); // drops p1, paste_count -> 1
+    assert_eq!(canvas.paste_count(), 1);
+    assert_eq!(canvas.shape_count(), 1);
+
+    // Redo Paste 1
+    assert!(canvas.redo());
+    assert_eq!(canvas.shape_count(), 2);
+    assert_eq!(canvas.paste_count(), 2);
+
+    // Redo Paste 3
+    assert!(canvas.redo());
+    assert_eq!(canvas.shape_count(), 3);
+    assert_eq!(canvas.paste_count(), 3);
+}
+
+#[test]
+fn test_keymap_undo_matcher_semantics() {
+    let mac = MacosKeymap;
+    let lin = LinuxKeymap;
+
+    let empty_mod = ModifiersState::empty();
+    let super_mod = ModifiersState::SUPER;
+    let ctrl_mod = ModifiersState::CONTROL;
+    let shift_mod = ModifiersState::SHIFT;
+    let super_shift = ModifiersState::SUPER | ModifiersState::SHIFT;
+    let ctrl_shift = ModifiersState::CONTROL | ModifiersState::SHIFT;
+
+    // macOS: KeyZ alone or with Cmd/Ctrl should trigger Undo (as long as Shift is not pressed)
+    assert!(mac.matches_action(ShortcutAction::Undo, &super_mod, KeyCode::KeyZ));
+    assert!(mac.matches_action(ShortcutAction::Undo, &empty_mod, KeyCode::KeyZ));
+    assert!(!mac.matches_action(ShortcutAction::Undo, &shift_mod, KeyCode::KeyZ));
+    assert!(!mac.matches_action(ShortcutAction::Undo, &super_shift, KeyCode::KeyZ));
+
+    // Linux: KeyZ alone or with Ctrl should trigger Undo (as long as Shift is not pressed)
+    assert!(lin.matches_action(ShortcutAction::Undo, &ctrl_mod, KeyCode::KeyZ));
+    assert!(lin.matches_action(ShortcutAction::Undo, &empty_mod, KeyCode::KeyZ));
+    assert!(!lin.matches_action(ShortcutAction::Undo, &shift_mod, KeyCode::KeyZ));
+    assert!(!lin.matches_action(ShortcutAction::Undo, &ctrl_shift, KeyCode::KeyZ));
+    assert!(!lin.matches_action(ShortcutAction::Undo, &ctrl_mod, KeyCode::KeyY));
+}
+
+#[test]
+fn test_text_editing_commit_and_paste_behavior() {
+    let dummy = Box::new(DummyPlatformController::new());
+    let mut app = DrawApp::with_keymap(dummy, Box::new(MacosKeymap));
+
+    // 1. Setup a shape on canvas and copy it to clipboard
+    let rect = RectangleShape::new(
+        Point2D::new(10.0, 10.0),
+        50.0,
+        50.0,
+        Color::from_rgba8(255, 0, 0, 255),
+        None,
+        1.0,
+    );
+    app.canvas_mut().push_shape(Box::new(rect));
+    app.canvas_mut().copy_selected(&[0]);
+    assert!(app.canvas().has_clipboard());
+
+    // 2. Start inline text editing with an empty new text shape
+    let text = TextShape::new(
+        Point2D::new(100.0, 100.0),
+        "",
+        20.0,
+        Color::from_rgba8(0, 0, 0, 255),
+    );
+    app.canvas_mut().push_shape(Box::new(text));
+    app.text_editing = Some(TextEditSession {
+        shape_index: 1,
+        is_new: true,
+    });
+    assert_eq!(app.canvas().shape_count(), 2);
+
+    // Commit text editing: since empty and new, it should be deleted
+    app.commit_text_editing();
+    assert_eq!(app.canvas().shape_count(), 1);
+    assert!(app.text_editing.is_none());
+
+    // Paste now produces the pasted shape at offset (20, 20)
+    let pasted = app.canvas_mut().paste(Point2D::new(20.0, 20.0));
+    assert_eq!(pasted, vec![1]);
+    assert_eq!(app.canvas().shape_count(), 2);
 }

@@ -20,6 +20,8 @@ pub enum InspectorHitTarget {
     LayerBack,
     Duplicate,
     Delete,
+    Copy,
+    Paste,
 }
 
 /// Parameters passed to the Inspector HUD for rendering.
@@ -31,6 +33,7 @@ pub struct InspectorRenderParams {
     pub stroke_width: f32,
     pub stroke_style: StrokeStyle,
     pub language: AppLanguage,
+    pub primary_modifier: &'static str,
 }
 
 /// Left-side floating Inspector HUD panel for real-time shape attribute customization.
@@ -38,7 +41,7 @@ pub struct InspectorOverlay;
 
 impl InspectorOverlay {
     pub const CARD_BASE_WIDTH: f32 = 236.0;
-    pub const CARD_BASE_HEIGHT: f32 = 330.0;
+    pub const CARD_BASE_HEIGHT: f32 = 356.0;
 
     /// Calculate physical pixel dimensions of the inspector card.
     pub fn get_card_size(scale_factor: f32) -> (f32, f32) {
@@ -137,13 +140,24 @@ impl InspectorOverlay {
             }
         }
 
-        // Section 6: Actions (ry: 288..318)
-        if (288.0..=318.0).contains(&ry) && (14.0..=222.0).contains(&rx) {
+        // Section 6: Actions
+        // Row 1: Duplicate, Delete (ry: 288..312)
+        if (288.0..=312.0).contains(&ry) && (14.0..=222.0).contains(&rx) {
             let btn_w = (222.0 - 14.0) / 2.0;
             let idx = ((rx - 14.0) / btn_w) as usize;
             match idx {
                 0 => return InspectorHitTarget::Duplicate,
                 _ => return InspectorHitTarget::Delete,
+            }
+        }
+
+        // Row 2: Copy, Paste (ry: 318..342)
+        if (318.0..=342.0).contains(&ry) && (14.0..=222.0).contains(&rx) {
+            let btn_w = (222.0 - 14.0) / 2.0;
+            let idx = ((rx - 14.0) / btn_w) as usize;
+            match idx {
+                0 => return InspectorHitTarget::Copy,
+                _ => return InspectorHitTarget::Paste,
             }
         }
 
@@ -451,7 +465,7 @@ impl InspectorOverlay {
             );
         }
 
-        // Section 6: ACTIONS (Duplicate, Delete)
+        // Section 6: ACTIONS (Duplicate, Delete, Copy, Paste)
         BitmapFont::draw_text(
             pixmap,
             pos.x + 14.0 * ui_scale,
@@ -461,13 +475,19 @@ impl InspectorOverlay {
             ui_scale * 0.75,
         );
         let act_btn_w = (card_w - 28.0 * ui_scale) / 2.0;
+
+        let act_duplicate_str = params.language.action_duplicate(params.primary_modifier);
+        let act_copy_str = params.language.action_copy(params.primary_modifier);
+        let act_paste_str = params.language.action_paste(params.primary_modifier);
+
+        // Row 1: Duplicate, Delete
         render_segment_button(
             pixmap,
             pos.x + 14.0 * ui_scale,
             pos.y + 288.0 * ui_scale,
             act_btn_w - 4.0 * ui_scale,
-            26.0 * ui_scale,
-            &props.action_duplicate,
+            24.0 * ui_scale,
+            &act_duplicate_str,
             false,
             ui_scale,
         );
@@ -476,8 +496,30 @@ impl InspectorOverlay {
             pos.x + 14.0 * ui_scale + act_btn_w,
             pos.y + 288.0 * ui_scale,
             act_btn_w - 4.0 * ui_scale,
-            26.0 * ui_scale,
+            24.0 * ui_scale,
             &props.action_delete,
+            false,
+            ui_scale,
+        );
+
+        // Row 2: Copy, Paste
+        render_segment_button(
+            pixmap,
+            pos.x + 14.0 * ui_scale,
+            pos.y + 318.0 * ui_scale,
+            act_btn_w - 4.0 * ui_scale,
+            24.0 * ui_scale,
+            &act_copy_str,
+            false,
+            ui_scale,
+        );
+        render_segment_button(
+            pixmap,
+            pos.x + 14.0 * ui_scale + act_btn_w,
+            pos.y + 318.0 * ui_scale,
+            act_btn_w - 4.0 * ui_scale,
+            24.0 * ui_scale,
+            &act_paste_str,
             false,
             ui_scale,
         );
