@@ -39,6 +39,9 @@ jobs:
       - name: 3. Unit & Integration Tests (cargo test)
         run: cargo test
 
+      - name: 4. Build Linux Release Binary (cargo build --release)
+        run: cargo build --release
+
   build-macos:
     name: Native Release Build (macOS)
     runs-on: macos-latest

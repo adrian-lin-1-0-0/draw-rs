@@ -12,6 +12,7 @@ pub use models::{
     TransformHandle,
 };
 pub use platform::DummyPlatformController;
+pub use platform::LinuxPlatformController;
 #[cfg(target_os = "macos")]
 pub use platform::MacosPlatformController;
 pub use platform::{

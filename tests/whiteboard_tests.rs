@@ -1,9 +1,9 @@
 use draw_rs::{
     AppLanguage, ArrowShape, CanvasController, CircleShape, CornerStyle, DiamondShape, DrawApp,
     Drawable, DummyPlatformController, InspectorHitTarget, InspectorOverlay, InspectorRenderParams,
-    LineShape, LinuxKeymap, MacosKeymap, PlatformKeymap, Point2D, Rect2D, RectangleShape,
-    SelectionRenderer, ShortcutAction, Sloppiness, StrokeStyle, TextEditSession, TextShape,
-    TransformHandle,
+    LineShape, LinuxKeymap, LinuxPlatformController, MacosKeymap, PlatformKeymap, Point2D, Rect2D,
+    RectangleShape, SelectionRenderer, ShortcutAction, Sloppiness, StrokeStyle, TextEditSession,
+    TextShape, TransformHandle, WindowPlatformController,
 };
 use tiny_skia::{Color, Pixmap};
 use winit::keyboard::{KeyCode, ModifiersState};
@@ -863,4 +863,19 @@ fn test_text_editing_commit_and_paste_behavior() {
     let pasted = app.canvas_mut().paste(Point2D::new(20.0, 20.0));
     assert_eq!(pasted, vec![1]);
     assert_eq!(app.canvas().shape_count(), 2);
+}
+
+#[test]
+fn test_linux_platform_controller_and_draw_app_integration() {
+    let linux_platform = Box::new(LinuxPlatformController::new());
+    assert_eq!(linux_platform.keymap().primary_modifier_name(), "Ctrl");
+
+    // Ensure LinuxPlatformController implements Send + Sync (compile-time & runtime assertion)
+    fn assert_send_sync<T: Send + Sync>() {}
+    assert_send_sync::<LinuxPlatformController>();
+
+    // Test that DrawApp seamlessly accepts LinuxPlatformController via DIP
+    let app = DrawApp::new(linux_platform);
+    assert_eq!(app.keymap().primary_modifier_name(), "Ctrl");
+    assert_eq!(app.canvas().shape_count(), 0);
 }
