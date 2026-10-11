@@ -44,7 +44,7 @@ src/
 │   ├── mod.rs            # WindowPlatformController trait & PlatformError
 │   ├── keymap.rs         # PlatformKeymap trait, MacosKeymap, and LinuxKeymap
 │   ├── macos.rs          # MacosPlatformController (encapsulates all unsafe Objective-C pointers)
-│   ├── linux.rs          # LinuxPlatformController (softbuffer X11/Wayland presentation & window state)
+│   ├── linux.rs          # LinuxPlatformController (native Wayland Argb8888 SHM / softbuffer X11 presentation & window state)
 │   └── dummy.rs          # DummyPlatformController (testing fallback)
 ├── render/               # [Rasterization & UI] Pixel rasterization and HUD rendering
 │   ├── mod.rs
