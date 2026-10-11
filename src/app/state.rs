@@ -180,15 +180,7 @@ impl DragState {
     ) -> Option<Box<dyn Drawable>> {
         self.to_preview_drawable_styled(
             color.to_color(),
-            Some(
-                Color::from_rgba(
-                    color.to_color().red(),
-                    color.to_color().green(),
-                    color.to_color().blue(),
-                    0.25,
-                )
-                .unwrap_or(Color::TRANSPARENT),
-            ),
+            None,
             stroke_width,
             StrokeStyle::Solid,
             Sloppiness::Artist,
@@ -234,14 +226,8 @@ impl DragState {
 
             Self::DrawingCircle { start, current } => {
                 let radius = start.distance(current);
-                let mut c = CircleShape::with_translucent_fill(
-                    *start,
-                    radius,
-                    stroke_color,
-                    stroke_width,
-                    0.25,
-                );
-                c.fill_color = fill_color;
+                let mut c =
+                    CircleShape::new(*start, radius, stroke_color, fill_color, stroke_width);
                 c.stroke_style = stroke_style;
                 c.sloppiness = sloppiness;
                 c.opacity = opacity;

@@ -1,3 +1,4 @@
+use draw_rs::app::state::{DragState, PaletteColor};
 use draw_rs::{
     AppLanguage, ArrowShape, CanvasController, CircleShape, CornerStyle, DiamondShape, DrawApp,
     Drawable, DummyPlatformController, InspectorHitTarget, InspectorOverlay, InspectorRenderParams,
@@ -878,4 +879,96 @@ fn test_linux_platform_controller_and_draw_app_integration() {
     let app = DrawApp::new(linux_platform);
     assert_eq!(app.keymap().primary_modifier_name(), "Ctrl");
     assert_eq!(app.canvas().shape_count(), 0);
+}
+
+#[test]
+fn test_default_background_fill_is_none_and_properties_behavior() {
+    let platform = Box::new(DummyPlatformController::new());
+    let app = DrawApp::new(platform);
+
+    // 1. Initial active_fill_color must be None (not blue or any other color)
+    assert_eq!(app.active_fill_color(), None);
+
+    // 2. Default preview shapes for Rectangle, Diamond, Circle must have None fill_color
+    let drag_rect = DragState::DrawingRectangle {
+        start: Point2D::new(10.0, 10.0),
+        current: Point2D::new(50.0, 50.0),
+    };
+    let rect_shape = drag_rect
+        .to_preview_drawable_styled(
+            app.active_stroke_color(),
+            app.active_fill_color(),
+            3.5,
+            StrokeStyle::Solid,
+            Sloppiness::Artist,
+            CornerStyle::Sharp,
+            1.0,
+        )
+        .unwrap();
+    assert_eq!(rect_shape.fill_color(), None);
+
+    let drag_diamond = DragState::DrawingDiamond {
+        start: Point2D::new(10.0, 10.0),
+        current: Point2D::new(50.0, 50.0),
+    };
+    let diamond_shape = drag_diamond
+        .to_preview_drawable_styled(
+            app.active_stroke_color(),
+            app.active_fill_color(),
+            3.5,
+            StrokeStyle::Solid,
+            Sloppiness::Artist,
+            CornerStyle::Sharp,
+            1.0,
+        )
+        .unwrap();
+    assert_eq!(diamond_shape.fill_color(), None);
+
+    let drag_circle = DragState::DrawingCircle {
+        start: Point2D::new(10.0, 10.0),
+        current: Point2D::new(50.0, 50.0),
+    };
+    let circle_shape = drag_circle
+        .to_preview_drawable_styled(
+            app.active_stroke_color(),
+            app.active_fill_color(),
+            3.5,
+            StrokeStyle::Solid,
+            Sloppiness::Artist,
+            CornerStyle::Sharp,
+            1.0,
+        )
+        .unwrap();
+    assert_eq!(circle_shape.fill_color(), None);
+
+    // 3. Test InspectorOverlay hit test and render with None fill
+    let scale = 1.0;
+    let inspector_pos = Point2D::new(20.0, 150.0);
+    // Clicking the None swatch (x: 14 + 10, y: 98 + 10)
+    let none_hit_point = Point2D::new(inspector_pos.x + 24.0, inspector_pos.y + 108.0);
+    assert_eq!(
+        InspectorOverlay::hit_test(inspector_pos, none_hit_point, scale),
+        InspectorHitTarget::FillColor(None)
+    );
+
+    // Clicking the first color swatch (Cyan)
+    let cyan_hit_point = Point2D::new(inspector_pos.x + 59.0, inspector_pos.y + 108.0);
+    assert_eq!(
+        InspectorOverlay::hit_test(inspector_pos, cyan_hit_point, scale),
+        InspectorHitTarget::FillColor(Some(PaletteColor::Cyan))
+    );
+
+    // InspectorOverlay renders without issue when fill_color is None
+    let mut pixmap = Pixmap::new(300, 750).unwrap();
+    let params = InspectorRenderParams {
+        selected_count: 0,
+        stroke_color: app.active_stroke_color(),
+        fill_color: None,
+        stroke_width: 3.5,
+        stroke_style: StrokeStyle::Solid,
+        language: AppLanguage::En,
+        primary_modifier: "Cmd",
+    };
+    InspectorOverlay::render(&mut pixmap, &params, scale, inspector_pos);
+    assert!(pixmap.pixels().iter().any(|p| p.alpha() > 0));
 }
