@@ -74,7 +74,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let proxy = event_loop.create_proxy();
 
     // 3. Setup global hotkey for F1 (allowing mode toggling while unfocused / clicking through)
-    match GlobalHotKeyManager::new() {
+    // NOTE: Keep `_hotkey_manager` alive for the entire duration of `main` to prevent the OS listener
+    // from being dropped before `event_loop.run_app()` completes.
+    let _hotkey_manager = match GlobalHotKeyManager::new() {
         Ok(hotkey_manager) => {
             let hotkey_f1 = HotKey::new(None, Code::F1);
             if let Err(err) = hotkey_manager.register(hotkey_f1) {
@@ -90,14 +92,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     }
                 });
             }
+            Some(hotkey_manager)
         }
         Err(err) => {
             eprintln!(
                 "[draw-rs] Notice: Global hotkey manager not available on this desktop server: {err}"
             );
             eprintln!("          (In-window F1 hotkey remains fully operational)");
+            None
         }
-    }
+    };
 
     let mut app = DrawApp::new(platform);
 
