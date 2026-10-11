@@ -1,10 +1,10 @@
+use draw_rs::app::state::{DragState, PaletteColor};
 use draw_rs::{
-    AppLanguage, ArrowShape, CanvasController, CircleShape, CornerStyle, DiamondShape, DragState,
-    DrawApp, Drawable, DummyPlatformController, InspectorHitTarget, InspectorOverlay,
-    InspectorRenderParams, LineShape, LinuxKeymap, LinuxPlatformController, MacosKeymap,
-    PaletteColor, PlatformKeymap, Point2D, Rect2D, RectangleShape, SelectionRenderer,
-    ShortcutAction, Sloppiness, StrokeStyle, TextEditSession, TextShape, TransformHandle,
-    WindowPlatformController,
+    AppLanguage, ArrowShape, CanvasController, CircleShape, CornerStyle, DiamondShape, DrawApp,
+    Drawable, DummyPlatformController, InspectorHitTarget, InspectorOverlay, InspectorRenderParams,
+    LineShape, LinuxKeymap, LinuxPlatformController, MacosKeymap, PlatformKeymap, Point2D, Rect2D,
+    RectangleShape, SelectionRenderer, ShortcutAction, Sloppiness, StrokeStyle, TextEditSession,
+    TextShape, TransformHandle, WindowPlatformController,
 };
 use tiny_skia::{Color, Pixmap};
 use winit::keyboard::{KeyCode, ModifiersState};

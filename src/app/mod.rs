@@ -22,7 +22,7 @@ use crate::render::{
     InspectorOverlay, InspectorRenderParams, SelectionRenderer,
 };
 pub use i18n::AppLanguage;
-pub use state::{AppMode, DragState, DrawingTool, PaletteColor};
+use state::{AppMode, DragState, DrawingTool, PaletteColor};
 
 /// Custom application event triggered by global hotkeys or background threads.
 #[derive(Debug, Clone)]
